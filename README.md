@@ -4,7 +4,7 @@ A series of Matlab scripts to import analyze slice electrophysiology recordings 
 The toolset is based on 'abfload.m', which imports .abf files into matlab arrays. Abfload was made by Harald Hentschke and is orriginally available here: https://www.mathworks.com/matlabcentral/fileexchange/6190-abfload.
 
 # Instalation:
-Make sure the following files are avialble on the Matlab path:
+Make sure the following files are available on the Matlab path:
 
       abfload.m                                    - For import of .abf files. Made by Harald Hentschke.
       pvpmod.m                                     - Deals with varargin in abfload.m. Made by Ulrich Egert
