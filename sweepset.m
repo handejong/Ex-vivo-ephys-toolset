@@ -20,7 +20,8 @@ classdef sweepset < handle
     %       - 'filename', 'path/filename'   | open selected file
     %
     %   Made by Johannes de Jong, j.w.dejong@berkeley.edu
-    
+
+% Git test
     
     properties (SetObservable)
         filename            % .abf file
