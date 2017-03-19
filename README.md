@@ -29,7 +29,7 @@ To open a file browser where the user can select a .abf file. Alternatively one 
 
             >> output_sweepset=sweepset('filename','filename.abf')
 
-This will create a sweepset object named 'output_sweepset'. The first sweep is presented in a figure and data about the dataset is printed to the command line. The following comand prints information about the sweepset (such as the sampling frequency):
+This will create a sweepset object named 'output_sweepset'. The first sweep is presented in a figure and data about the dataset is printed to the command line. The following command prints information about the sweepset (such as the sampling frequency):
 
             >> output_sweepset.file_header
 
@@ -40,8 +40,8 @@ If the window that displays the sweepset is active. One can scroll through the d
           A:                          Display average sweep (uses only 'selected', not 'rejected' sweeps)
           Z:                          Display entire dataset in background
           S:                          Select sweeps (sweeps are selected by default).
-          R:                          Reject sweep (meaning that the sweep will not be taken in to account in any analysis)
-          ENTER:                      Print the current sweep selectino to the commmand line
+          R:                          Reject sweep (meaning that the sweep will not be taken into account in any analysis)
+          ENTER:                      Print the current sweep selection to the commmand line
           M:                          Open measurement GUI for measurement of amplitude of peaks.
           F:                          Open GUI for measuring event frequency
           Esc:                        Reset Y and X axis for complete overview of data
@@ -57,11 +57,11 @@ The toolkit currently suports three ways of baseline substraction. They are 'sta
             >> this_sweepset.settings.baseline_info.method='standard';
             >> output_sweepset.settings.baseline_info.substracted=true;
 
-This will substract the baseline (defined as the average value between 10ms and 100ms) from eacht sweep individually. If 'baseline_info.start' and 'baseline_info.end' are not manually set, they are 1ms and 100ms by default. Method is also 'standard' by default. Instead of manually setting 'baseline_info.substracted' to true, one can press 'Q' on the active figure or type:
+This will substract the baseline (defined as the average value between 10ms and 100ms) from eacht sweep individually. If 'baseline_info.start' and 'baseline_info.end' are not manually set, they are 1ms and 100ms by default. The method is also set to 'standard' by default. Instead of manually setting 'baseline_info.substracted' to true, one can press 'Q' on the active figure or type:
 
             >> output_sweepset.substract_baseline;
        
-This is toggle baseline substraction. Substraction method 'whole trace':
+This will toggle baseline substraction. Substraction method 'whole trace':
 
             >> this_sweepset.settings.baseline_info.method='whole_trace';
             note: this just sets the method. Toggle baseline substraction as above.
@@ -71,6 +71,6 @@ This will subtract the average of each sweep from itself. 'moving_average_1s' is
             >> this_sweepset.settings.baseline_info.method='moving_average_1s';
             note: this just sets the method. Toggle baseline substraction as above.
  
- Note that baseline substraction can cause the sweep to 'jump' outside the current axes. Press 'Esc' to refocus on the sweepset.
+ Note that baseline substraction can cause the sweep to 'jump' outside the current axes. Press 'Esc' to re-focus on the sweepset.
  
  
