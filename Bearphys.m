@@ -147,7 +147,6 @@ function substract_baseline_Callback(hObject, eventdata, handles)
     
     if strcmp(test_type.class,'sweepset')
         current_sweepset.substract_baseline
-        notify(current_sweepset,'state_change')
     end
 
 % --- Executes on button press in measure.
@@ -271,9 +270,6 @@ function baseline_method_Callback(hObject, eventdata, handles)
            case 3
                current_sweepset.settings.baseline_info.method='moving_average_1s';
        end
-       current_sweepset.settings.baseline_info.substracted=~current_sweepset.settings.baseline_info.substracted;
-       current_sweepset.substract_baseline
-       notify(current_sweepset,'state_change')
     end
 
 % --- Executes during object creation, after setting all properties.
@@ -307,16 +303,14 @@ function smooth_trace_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of smooth_trace
- current_sweepset=getappdata(handles.output,'paired_sweepset');
+current_sweepset=getappdata(handles.output,'paired_sweepset');
  
-if get(hObject,'Value')==1;
-    current_sweepset.smooth_trace(str2num(get(handles.smooth_ms,'String')));
+if get(hObject,'Value')==1
+    current_sweepset.settings.smoothed=true;
 else
-    current_sweepset.smooth_trace('undo');
+    current_sweepset.settings.smoothed=false;
 end
     
-
-
 function smooth_ms_Callback(hObject, eventdata, handles)
 % hObject    handle to smooth_ms (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -325,6 +319,10 @@ function smooth_ms_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of smooth_ms as text
 %        str2double(get(hObject,'String')) returns contents of smooth_ms as a double
 
+input=str2num(get(hObject,'String'));
+current_sweepset=getappdata(handles.output,'paired_sweepset');
+
+current_sweepset.settings.smooth_factor=input;
 
 % --- Executes during object creation, after setting all properties.
 function smooth_ms_CreateFcn(hObject, eventdata, handles)
