@@ -5,12 +5,13 @@ The toolset is based on 'abfload.m', which imports .abf files into matlab arrays
 
 # Instalation:
 Make sure the following files are avialble on the Matlab path:
-abfload.m                                    - For import of .abf files. Made by Harald Hentschke.
-pvpmod.m                                     - Deals with varargin in abfload.m. Made by Ulrich Egert
-sweepset.m                                   - Describes the sweepset class. Made by Han de Jong
-measure.m & measure.fig                      - GUI for amplitude measurements of events
-firing_frequency.m & firing_frequency.fig    - GUI for measuring frequency of events
-Bearphys.m & Bearphys.fig                    - GUI for interaction with sweepset.m.
+
+      abfload.m                                    - For import of .abf files. Made by Harald Hentschke.
+      pvpmod.m                                     - Deals with varargin in abfload.m. Made by Ulrich Egert
+      sweepset.m                                   - Describes the sweepset class. Made by Han de Jong
+      measure.m & measure.fig                      - GUI for amplitude measurements of events
+      firing_frequency.m & firing_frequency.fig    - GUI for measuring frequency of events
+      Bearphys.m & Bearphys.fig                    - GUI for interaction with sweepset.m.
 
 # How to get started using the Bearphys GUI
 Type:
