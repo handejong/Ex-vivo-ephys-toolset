@@ -1,7 +1,7 @@
 # Ex-vivo-ephys-toolset
 A series of Matlab scripts to import analyze slice electrophysiology recordings collected with Pclamp (Molecular Devices).
 
-The toolset is based on 'abfload.m', which imports .abf files into matlab arrays. Abfload was made by Harald Hentschke.
+The toolset is based on 'abfload.m', which imports .abf files into matlab arrays. Abfload was made by Harald Hentschke and is orriginally available here: https://www.mathworks.com/matlabcentral/fileexchange/6190-abfload.
 
 # Instalation:
 Make sure the following files are avialble on the Matlab path:
@@ -18,7 +18,7 @@ Type:
 
       >>Bearphys
       
-This should open the GUI. Note that use of the GUI should not prevent additional use of the command line interface. The GUI should support multiple sweepset objects at the same time. However, glitchges can occur when switching between multiple figures as the user and the GUI sometimes disagree on what the active figure is.
+This should open the GUI. Note that use of the GUI should not prevent additional use of the command line interface. The GUI should support multiple sweepset objects at the same time. However, glitchges can occur when switching between multiple figures as the user and the GUI sometimes disagree on what the active figure is. Use 'S' and 'R' to select and reject sweeps.
 
 # How to get started using comand line interface:
 The basis of the toolkit is the sweepset object into which .abf recordings are loaded. A sweepset class is initiated by the command:
