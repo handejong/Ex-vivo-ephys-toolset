@@ -38,7 +38,7 @@ classdef sweepset < handle
         settings            % struct with settings, used for interaction with user and GUI
     end
     
-    properties (Dependent)
+    properties (Dependent, SetObservable)
         baseline            % can be value or complex, depending on the baseline substraction method       
         average_trace       % average trace is computed using only the selected sweeps
         base_data           % used for dynamic updating of the figure after settings change
@@ -88,7 +88,7 @@ classdef sweepset < handle
             this_sweepset.settings.baseline_info.end=100;
             this_sweepset.settings.baseline_info.method='standard';
             this_sweepset.settings.baseline_info.substracted=false;
-            this_sweepset.settings.average_smooth=false;
+            this_sweepset.settings.average_smooth=0;
             this_sweepset.settings.smoothed=false;
             this_sweepset.settings.smooth_factor=0;
             
@@ -161,6 +161,11 @@ classdef sweepset < handle
             
         end      
         
+        function smooth_average(this_sweepset, smooth_factor)
+             SF=this_sweepset.sampling_frequency;
+             this_sweepset.settings.average_smooth=round(smooth_factor)*SF; %will be automatically updated because of the listener to settings
+        end
+        
         function smooth_trace(this_sweepset, input)
         % function will smooth the traces (removed noise) using a sliding window based on input*sampling_frequency.    
         
@@ -175,6 +180,26 @@ classdef sweepset < handle
                 this_sweepset.settings.smoothed=true;
                 this_sweepset.settings.smooth_factor=input;
                 disp(['Data smoothed by ' num2str(input) 'ms']);
+            end
+            
+        end
+        
+        function output_data(this_sweepset, options, matrix_name)
+        % for output of data for further analysis or figure design.
+        
+            switch options
+                case 'whole_trace'
+                    output_matrix=zeros(length(this_sweepset.X_data),sum(this_sweepset.sweep_selection)+1);
+                    output_matrix(:,1)=this_sweepset.X_data;
+                    output_matrix(:,2:end)=squeeze(this_sweepset.data(:,1,this_sweepset.sweep_selection));
+                    assignin('base',matrix_name,output_matrix);
+                case 'average'
+                    output_matrix=zeros(length(this_sweepset.X_data),2);
+                    output_matrix(:,1)=this_sweepset.X_data;
+                    output_matrix(:,2)=this_sweepset.average_trace;
+                    assignin('base',matrix_name,output_matrix);
+                otherwise
+                    disp([options ' is not an available option'])
             end
             
         end
@@ -278,6 +303,9 @@ classdef sweepset < handle
                     roof=max(max(this_sweepset.data))+10;
                     disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
                     axis([0 disp_right floor roof])
+                case 99 % 'C', open trace combiner
+                    combiner_1=trace_combiner;
+                    assignin('base','combiner_1',combiner_1);
             end
             
             notify(this_sweepset,'state_change')
@@ -298,10 +326,9 @@ classdef sweepset < handle
                     set(this_sweepset.handles.current_sweep,'YData',this_sweepset.data(:,1,this_sweepset.current_sweep));
                     for i=1:length(this_sweepset.handles.all_sweeps)
                         set(this_sweepset.handles.all_sweeps(i),'YData',squeeze(this_sweepset.data(:,1,i)));
-                    end       
+                    end
+                    set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
             end
-            
-            
         end
         
         function close_req(this_sweepset, scr, ev)
