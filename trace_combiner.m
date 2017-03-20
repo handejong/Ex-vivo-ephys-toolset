@@ -7,16 +7,23 @@ classdef trace_combiner < handle
         plot_handles            % Handles to the plots
         figure_handle           % Handle to the figure
         plot_listeners          % Listen to the average traces, need to be updated if they are changed.
+
         X_data                  % X axis data (ms)
         Y_data                  % All traces
         data_selection          % Logical of selected data
+
+
     end
     
     methods
         
         function this_trace_combiner=trace_combiner(varargin)
+
         % Constructor.
         
+
+            
+
             all_objects=get(0,'children');
             np_sweepsets=0;
             
@@ -44,6 +51,7 @@ classdef trace_combiner < handle
             for i=1:np_sweepsets
                 this_trace_combiner.plot_handles(i)=plot(linked_objects(i).X_data,linked_objects(i).average_trace);
                 plot_listeners(i)=addlistener(linked_objects(i),'state_change',@this_trace_combiner.update_plot);
+
                 this_trace_combiner.Y_data(:,i)=linked_objects(i).average_trace; % Will only work if they are the same length!
             end
             this_trace_combiner.plot_listeners=plot_listeners;
@@ -63,6 +71,13 @@ classdef trace_combiner < handle
             output_matrix(:,2:end)=this_trace_combiner.Y_data(:,this_trace_combiner.data_selection);
             assignin('base',matrix_name,output_matrix);
         end
+
+            end
+            this_trace_combiner.plot_listeners=plot_listeners;
+        end
+       
+ 
+
         
         
     end

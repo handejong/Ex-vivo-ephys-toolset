@@ -304,8 +304,12 @@ classdef sweepset < handle
                     disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
                     axis([0 disp_right floor roof])
                 case 99 % 'C', open trace combiner
+
                     combiner_1=trace_combiner;
                     assignin('base','combiner_1',combiner_1);
+
+                    trace_combiner
+
             end
             
             notify(this_sweepset,'state_change')
