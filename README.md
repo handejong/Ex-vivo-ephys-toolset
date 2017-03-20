@@ -18,7 +18,7 @@ Type:
 
       >>Bearphys
       
-This should open the GUI. Note that use of the GUI should not prevent additional use of the command line interface. The GUI should support multiple sweepset objects at the same time. However, glitchges can occur when switching between multiple figures as the user and the GUI sometimes disagree on what the active figure is. Use 'S' and 'R' to select and reject sweeps.
+This should open the GUI. Note that use of the GUI should not prevent additional use of the command line interface. The GUI should support multiple sweepset objects at the same time. However, glitches can occur when switching between multiple figures as the user and the GUI sometimes disagree on what the active figure is. Use 'S' and 'R' to select and reject sweeps.
 
 # How to get started using comand line interface:
 The basis of the toolkit is the sweepset object into which .abf recordings are loaded. A sweepset class is initiated by the command:
@@ -44,33 +44,49 @@ If the window that displays the sweepset is active. One can scroll through the d
           ENTER:                      Print the current sweep selection to the commmand line
           M:                          Open measurement GUI for measurement of amplitude of peaks.
           F:                          Open GUI for measuring event frequency
+	  C:			      Will start the ‘trace combiner object’ which combines average traces from different sweepsets.
           Esc:                        Reset Y and X axis for complete overview of data
 
 Note that Matlab figures only register key presses when they are active and when no figure tools (such as zoom or scroll) are active. To deactive a figure tool, click it again on the figure toolbar.
 
 Using S and R one can select and reject individual sweeps (for instance because they contain artifacts). The calculated average trace, as well as measurements by seperate GUIs, should be automatically updated. It is also possible to manually set the sweep selection. In the Matlab workspace browse to the variable output_sweepset.sweep_selection. This is a logical. Select or recject sweeps by typing 'false', 'true', '1' or '0' below the sweep number.
 
-The toolkit currently suports three ways of baseline substraction. They are 'standard', 'whole_trace' & 'moving_average_1s';
+The toolkit currently supports three ways of baseline subtraction. They are 'standard', 'whole_trace' & 'moving_average_1s';
 
             >> output_sweepset.settings.baseline_info.start=10; %ms
             >> output_sweepset.settings.baseline_info.end=100; %ms
             >> this_sweepset.settings.baseline_info.method='standard';
             >> output_sweepset.settings.baseline_info.substracted=true;
 
-This will substract the baseline (defined as the average value between 10ms and 100ms) from eacht sweep individually. If 'baseline_info.start' and 'baseline_info.end' are not manually set, they are 1ms and 100ms by default. The method is also set to 'standard' by default. Instead of manually setting 'baseline_info.substracted' to true, one can press 'Q' on the active figure or type:
+This will substract the baseline (defined as the average value between 10ms and 100ms) from each sweep individually. If 'baseline_info.start' and 'baseline_info.end' are not manually set, they are 1ms and 100ms by default. The method is also set to 'standard' by default. Instead of manually setting 'baseline_info.substracted' to true, one can press 'Q' on the active figure or type:
 
             >> output_sweepset.substract_baseline;
        
 This will toggle baseline substraction. Substraction method 'whole trace':
 
-            >> this_sweepset.settings.baseline_info.method='whole_trace';
-            note: this just sets the method. Toggle baseline substraction as above.
+            >> output_sweepset.settings.baseline_info.method='whole_trace';
+            note: this just sets the method. Toggle baseline subtraction as above.
             
-This will subtract the average of each sweep from itself. 'moving_average_1s' is ideal to remove slow changes in baseline. It substracts a smoothed (1s sliding window) trace from the original data set.
+This will subtract the average of each sweep from itself. 'moving_average_1s' is ideal to remove slow changes in baseline. It subtracts a smoothed (1s sliding window) trace from the original data set.
 
-            >> this_sweepset.settings.baseline_info.method='moving_average_1s';
-            note: this just sets the method. Toggle baseline substraction as above.
+            >> output_sweepset.settings.baseline_info.method='moving_average_1s';
+            note: this just sets the method. Toggle baseline subtraction as above.
  
- Note that baseline substraction can cause the sweep to 'jump' outside the current axes. Press 'Esc' to re-focus on the sweepset.
+ Note that baseline subtraction can cause the sweep to 'jump' outside the current axes. Press 'Esc' to re-focus on the sweepset.
+
+# Output data for further analysis
+traces can be output for further analysis in Matlab, Graphpad prism, Excel or any other data analysis program. To output edited data type:
+	
+	    >> output_sweepset.output_data(‘whole_sweepset’, ‘matrix_name’);
+
+This will output a matrix ‘matrix_name’ to the Matlab workspace. Column 1 contains the X-data (time in ms), other columns contain all selected sweeps as they are currently displayed (e.g. background subtracted or smoothed).
+
+	    >> output_sweepset.output_data(‘average’, ‘matrix_name’);
+
+This will output only the average trace in column 2 of matrix ‘matrix_name’, again X-data will be in column 1. The output_data method also works on the trace_combiner window. During creating the trace_combiner object was assigned to the workspace under the name ‘combiner_1’. So the following command will access the method:
+
+	    >> combiner_1.output_data(‘matrix_name’);
+
+This will output all selected traces to a matrix ‘matrix_name’ in the Matlab workspace. Note that 
  
  
