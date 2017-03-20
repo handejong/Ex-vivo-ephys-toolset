@@ -184,6 +184,26 @@ classdef sweepset < handle
             
         end
         
+        function output_data(this_sweepset, options, matrix_name)
+        % for output of data for further analysis or figure design.
+        
+            switch options
+                case 'whole_trace'
+                    output_matrix=zeros(length(this_sweepset.X_data),sum(this_sweepset.sweep_selection)+1);
+                    output_matrix(:,1)=this_sweepset.X_data;
+                    output_matrix(:,2:end)=squeeze(this_sweepset.data(:,1,this_sweepset.sweep_selection));
+                    assignin('base',matrix_name,output_matrix);
+                case 'average'
+                    output_matrix=zeros(length(this_sweepset.X_data),2);
+                    output_matrix(:,1)=this_sweepset.X_data;
+                    output_matrix(:,2)=this_sweepset.average_trace;
+                    assignin('base',matrix_name,output_matrix);
+                otherwise
+                    disp([options ' is not an available option'])
+            end
+            
+        end
+        
         function baseline=get.baseline(this_sweepset)
             
             switch this_sweepset.settings.baseline_info.method
@@ -284,7 +304,12 @@ classdef sweepset < handle
                     disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
                     axis([0 disp_right floor roof])
                 case 99 % 'C', open trace combiner
+
+                    combiner_1=trace_combiner;
+                    assignin('base','combiner_1',combiner_1);
+
                     trace_combiner
+
             end
             
             notify(this_sweepset,'state_change')
