@@ -35,17 +35,17 @@ This will create a sweepset object named 'output_sweepset'. The first sweep is p
 
 If the window that displays the sweepset is active. One can scroll through the different sweeps using the arrow keys. Alternatively the following keypresses are currently supported:
 
-          arrow keys left and right:  Scroll trough different sweeps
-          Q:                          Substract baseline (see baseline method below)
-          A:                          Display average sweep (uses only 'selected', not 'rejected' sweeps)
-          Z:                          Display entire dataset in background
+          arrow keys left and right:  Scroll trough different sweeps.
+          Q:                          Substract baseline (see baseline method below).
+          A:                          Display average sweep (uses only 'selected', not 'rejected' sweeps).
+          Z:                          Display entire dataset in background.
           S:                          Select sweeps (sweeps are selected by default).
-          R:                          Reject sweep (meaning that the sweep will not be taken into account in any analysis)
-          ENTER:                      Print the current sweep selection to the commmand line
+          R:                          Reject sweep (meaning that the sweep will not be taken into account in any analysis).
+          ENTER:                      Print the current sweep selection to the commmand line.
           M:                          Open measurement GUI for measurement of amplitude of peaks.
-          F:                          Open GUI for measuring event frequency
-	  C:                          Will start the ‘trace combiner object’ which combines average traces from different sweepsets.
-          Esc:                        Reset Y and X axis for complete overview of data
+	  C:			      Will start the 'trace combiner' object, which combines average traces from different sweepset.
+          F:                          Open GUI for measuring event frequency.
+          Esc:                        Reset Y and X axis for complete overview of data.
 
 Note that Matlab figures only register key presses when they are active and when no figure tools (such as zoom or scroll) are active. To deactive a figure tool, click it again on the figure toolbar.
 
