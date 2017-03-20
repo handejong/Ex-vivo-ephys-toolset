@@ -43,8 +43,8 @@ If the window that displays the sweepset is active. One can scroll through the d
           R:                          Reject sweep (meaning that the sweep will not be taken into account in any analysis).
           ENTER:                      Print the current sweep selection to the commmand line.
           M:                          Open measurement GUI for measurement of amplitude of peaks.
-	  C:			      Will start the 'trace combiner' object, which combines average traces from different sweepset.
           F:                          Open GUI for measuring event frequency.
+          C:                          Will start the 'trace combiner' object.
           Esc:                        Reset Y and X axis for complete overview of data.
 
 Note that Matlab figures only register key presses when they are active and when no figure tools (such as zoom or scroll) are active. To deactive a figure tool, click it again on the figure toolbar.
