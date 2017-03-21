@@ -20,7 +20,7 @@ Type:
       
 This should open the GUI. Note that use of the GUI should not prevent additional use of the command line interface. The GUI should support multiple sweepset objects at the same time. However, glitches can occur when switching between multiple figures as the user and the GUI sometimes disagree on what the active figure is. Use 'S' and 'R' to select and reject sweeps.
 
-# How to get started using comand line interface:
+# How to get started using command-line interface:
 The basis of the toolkit is the sweepset object into which .abf recordings are loaded. A sweepset class is initiated by the command:
       
             >> output_sweepset=sweepset('user_select','on')
@@ -28,6 +28,10 @@ The basis of the toolkit is the sweepset object into which .abf recordings are l
 To open a file browser where the user can select a .abf file. Alternatively one can specify the filename as follows:
 
             >> output_sweepset=sweepset('filename','filename.abf')
+	  
+To load all the .abf files in the current folder type:
+
+	    >> sweepset('directory','on')
 
 This will create a sweepset object named 'output_sweepset'. The first sweep is presented in a figure and data about the dataset is printed to the command line. The following command prints information about the sweepset (such as the sampling frequency):
 
