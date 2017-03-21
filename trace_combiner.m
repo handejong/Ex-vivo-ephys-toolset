@@ -38,7 +38,7 @@ classdef trace_combiner < handle
                    
                 end
             end
-            disp(['Number of sweepset found: ',num2str(np_sweepsets)]);
+            disp(['Number of sweepsets found: ',num2str(np_sweepsets)]);
             this_trace_combiner.linked_objects=linked_objects;
              
             %making the figure
@@ -70,7 +70,7 @@ classdef trace_combiner < handle
             for i=1:np_sweepsets
                 if different_clamp && strcmp(this_trace_combiner.Header_data(i).clamp_type,'Voltage (mV)');
                     yyaxis right
-                else
+                elseif different_clamp
                     yyaxis left
                 end  
                 this_trace_combiner.plot_handles(i)=plot(linked_objects(i).X_data,linked_objects(i).average_trace);
@@ -100,12 +100,54 @@ classdef trace_combiner < handle
         end
        
         function output_data(this_trace_combiner, matrix_name)
-            output_matrix=zeros(length(this_trace_combiner.X_data),sum(this_trace_combiner.data_selection)+1);
-            output_matrix(:,1)=this_trace_combiner.X_data;
-            output_matrix(:,2:end)=this_trace_combiner.Y_data(:,this_trace_combiner.data_selection);
+            % Collecting all the data and storing it in an output matrix
+            i=1;
+            j=1;
+            while ~this_trace_combiner.data_selection(i)
+                i=i+1;
+                j=i+1; 
+                if i>length(this_trace_combiner.data_selection)
+                    disp('no traces selected')
+                    return
+                end
+            end
+                
+
+            
+            output_matrix=zeros(length(this_trace_combiner.X_data{j}),sum(this_trace_combiner.data_selection)+1); %for a start
+            previous_X_data=this_trace_combiner.X_data{j};
+            output_matrix(:,1)=previous_X_data;
+            
+            l=1;
+            for i=1:length(this_trace_combiner.data_selection)
+                while l<=length(this_trace_combiner.data_selection) && ~this_trace_combiner.data_selection(l) 
+                    l=l+1; % skip unselected traces
+                end
+
+                done=false;
+                if l>length(this_trace_combiner.data_selection)
+                    done=true;
+                else
+                    current_X_data=this_trace_combiner.X_data{l};
+                end
+                
+                if isequal(current_X_data, previous_X_data) && ~done %these traces will fit on the same X_data, store them next to each other
+                    output_matrix(:,i+1)=this_trace_combiner.Y_data{l};
+                    l=l+1;
+                elseif ~done % They don't fit next to each other, include seperate X_data
+                    
+                    error('Traces not on the same X_axis or different sampling frequency.')
+                    
+                end
+                
+                previous_X_data=current_X_data;
+            end
+            
+            % TODO, write something to organise this matrix and the
+            % different X_axes
+                
             assignin('base',matrix_name,output_matrix);
-        end
-        
+        end 
         
     end
     
@@ -116,7 +158,9 @@ classdef trace_combiner < handle
             % Also checking if the linked sweepsets still exist.
             for i=1:length(this_trace_combiner.plot_handles)
                 if isvalid(this_trace_combiner.linked_objects(i)) && this_trace_combiner.data_selection(i)
-                    set(this_trace_combiner.plot_handles(i),'YData',this_trace_combiner.linked_objects(i).average_trace,'Visible','on');
+                    av_plot=this_trace_combiner.linked_objects(i).average_trace; %otherwise it will recalculate twice (because it is a dependend variable)
+                    set(this_trace_combiner.plot_handles(i),'YData',av_plot,'Visible','on');
+                    this_trace_combiner.Y_data{i}=av_plot;
                 elseif isvalid(this_trace_combiner.linked_objects(i))
                     set(this_trace_combiner.plot_handles(i),'YData',this_trace_combiner.linked_objects(i).average_trace,'Visible','off');
                 elseif this_trace_combiner.data_selection(i)
