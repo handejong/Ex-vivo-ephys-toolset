@@ -91,6 +91,6 @@ This will output only the average trace in column 2 of matrix ‘matrix_name’,
 
 	    >> combiner_1.output_data(‘matrix_name’);
 
-This will output all selected traces to a matrix ‘matrix_name’ in the Matlab workspace. Note that 
+This will output all selected traces to a matrix ‘matrix_name’ in the Matlab workspace.
  
  
