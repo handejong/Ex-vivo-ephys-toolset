@@ -18,6 +18,7 @@ classdef sweepset < handle
     %   INPUTS:
     %       - 'user_select', ('on'/'off')   | UI for file selection
     %       - 'filename', 'path/filename'   | open selected file
+    %       - 'directory', ('on'./'off')    | will open all files in pwd
     %
     %   Made by Johannes de Jong, j.w.dejong@berkeley.edu
     
@@ -69,7 +70,39 @@ classdef sweepset < handle
                     [this_sweepset.data, sampling_interval, this_sweepset.file_header]=abfload(filename_path);
                     this_sweepset.sampling_frequency=10^3/sampling_interval; % The sampling frequency in kHz
                     this_sweepset.filename=temp_filename;
-                end                
+                end
+                
+                % Open all .abf files in this directory.
+                if strcmp(varargin{i},'directory') && strcmp(varargin{i+1},'on')
+                    filelist=[pwd '/*' '.abf'];
+                    filelist=dir(filelist);
+                    
+                    if isempty(filelist)
+                        disp('no .abf files in this folder')
+                        return
+                    end
+                    
+                    % Open all the .abf files as sweepset objects
+                    for j=1:length(filelist)
+                        object=sweepset('filename',filelist(j).name);
+                        name=['S_' object.filename(object.filename~=' ' & object.filename~='.' & object.filename~='+' & object.filename~='-')];
+                        assignin('base',name,object); % Printing them all to the workspace
+                    end
+                    
+                    % Get the name of this folder
+                    [~, folder_name, ~]=fileparts(pwd);
+                    folder_name=folder_name(folder_name~=' ' & folder_name~='+' & folder_name~='-' & folder_name~='.');
+                    
+                    combiner=trace_combiner;
+                    
+                    % Storing the handle to the combiner in the workspace
+                    assignin('base',folder_name,combiner)
+                    
+                    delete(this_sweepset);
+                    return
+                    
+                end
+                
             end
             
             % Current or voltage clamp
