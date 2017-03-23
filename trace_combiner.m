@@ -12,6 +12,8 @@ classdef trace_combiner < handle
         Header_data             % Header data about the sweepsets
         data_names              % Filenames of the linked sweepsets
         data_selection          % Logical of selected data
+        current_trace           % Currently selected trace
+        settings                % Other settings
     end
     
     properties
@@ -74,7 +76,8 @@ classdef trace_combiner < handle
                     yyaxis left
                 end  
                 this_trace_combiner.plot_handles(i)=plot(linked_objects(i).X_data,linked_objects(i).average_trace);
-                set(this_trace_combiner.plot_handles(i),'DisplayName',linked_objects(i).filename); % filename in the trace (for auto legend)
+                this_trace_combiner.Header_data(i).color=get(this_trace_combiner.plot_handles(i),'Color'); % Store the original color
+                set(this_trace_combiner.plot_handles(i),'DisplayName',linked_objects(i).filename,'ButtonDownFcN',@this_trace_combiner.click_on_trace); % filename in the trace (for auto legend) and now you can click on the traces
             end
                 
             % Figure axis
@@ -150,10 +153,12 @@ classdef trace_combiner < handle
         end 
         
     end
+ 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     methods (Access = private)
         
-        function update_plot(this_trace_combiner, ev, ~)
+        function update_plot(this_trace_combiner, ~, ~)
             % Update plot after linked sweepsets or settings change
             % Also checking if the linked sweepsets still exist.
             for i=1:length(this_trace_combiner.plot_handles)
@@ -169,6 +174,45 @@ classdef trace_combiner < handle
                     set(this_trace_combiner.plot_handles(i),'Visible','off');
                 end
             end 
+        end
+        
+        function click_on_trace(this_trace_combiner, clicked_plot, click_info)
+            % The user clicked on a trace
+            np_sweepsets=length(this_trace_combiner.data_selection);
+            
+            if click_info.Button==1 %left mouse button
+                for i=1:np_sweepsets
+                    if strcmp(clicked_plot.DisplayName, this_trace_combiner.data_names{i})
+                        this_trace_combiner.current_trace=i;
+                        clicked_plot.Color=[0 1 0];
+                        if isvalid(this_trace_combiner.linked_objects(i))
+                            figure(this_trace_combiner.linked_objects(i).handles.figure)
+                        else
+                            % Try and open the file?
+                            if exist(clicked_plot.DisplayName,'file')
+                                this_trace_combiner.linked_objects(i)=sweepset('filename',clicked_plot.DisplayName);
+                                
+                                % Should check if this file is really the
+                                % correct trace and display it properly.
+                                % (e.g. baseline subtracted etc...)
+                                
+                                this_sweep_combiner.plot_listeners(i)=addlistener(this_trace_combiner.linked_objects(i),'state_change',@this_trace_combiner.update_plot);
+                            end
+                        end
+                    else
+                        set(this_trace_combiner.plot_handles(i),'Color',this_trace_combiner.Header_data(i).color);     
+                    end
+                end
+            elseif click_info.Button==3
+                for i=1:np_sweepsets
+                    if strcmp(clicked_plot.DisplayName, this_trace_combiner.data_names{i})
+                        this_trace_combiner.current_trace=0;
+                        this_trace_combiner.data_selection(i)=false;
+                    end
+                end
+            end
+            
+            update_plot(this_trace_combiner);
         end
         
         function close_req(this_trace_combiner, ev, ~)

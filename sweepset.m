@@ -16,9 +16,10 @@ classdef sweepset < handle
     %   handle of the object that controls the figure.
     %
     %   INPUTS:
-    %       - 'user_select', ('on'/'off')   | UI for file selection
-    %       - 'filename', 'path/filename'   | open selected file
-    %       - 'directory', ('on'./'off')    | will open all files in pwd
+    %       - 'user_select', ('on'/'off')           | UI for file selection
+    %       - 'filename', 'path/filename'           | open selected file
+    %       - 'directory', ('on'./'off'/filepath)   | will open all files
+    %                                                 in pwd or filepath. 
     %
     %   Made by Johannes de Jong, j.w.dejong@berkeley.edu
     
@@ -50,15 +51,18 @@ classdef sweepset < handle
         function this_sweepset = sweepset(varargin)
             
             % Deal with arguments
+            
             for i=1:2:nargin
+            Unable_to_read_input=true; %untill proven otherwise    
                 % open input filename
                 if strcmp(varargin{i},'filename')
                     this_sweepset.filename=varargin{i+1};
                     [this_sweepset.data, sampling_interval, this_sweepset.file_header]=abfload(this_sweepset.filename);
                     this_sweepset.sampling_frequency=10^3/sampling_interval; % The sampling frequency in kHz 
+                    Unable_to_read_input=false;
                 end
                 
-                % allow the user to select file
+                % allow the user to select file (trumps input filename)
                 if strcmp(varargin{i},'user_select') && strcmp(varargin{i+1},'on')
                     [temp_filename, path] = uigetfile({'*.abf'},'select files','MultiSelect','off');
                     if temp_filename==0
@@ -70,16 +74,35 @@ classdef sweepset < handle
                     [this_sweepset.data, sampling_interval, this_sweepset.file_header]=abfload(filename_path);
                     this_sweepset.sampling_frequency=10^3/sampling_interval; % The sampling frequency in kHz
                     this_sweepset.filename=temp_filename;
+                    Unable_to_read_input=false;
                 end
                 
                 % Open all .abf files in this directory.
-                if strcmp(varargin{i},'directory') && strcmp(varargin{i+1},'on')
-                    filelist=[pwd '/*' '.abf'];
-                    filelist=dir(filelist);
+                if strcmp(varargin{i},'directory')
+                    disp('hoi')
+                    
+                    % First figure out the directory that should be openend
+                    if strcmp(varargin{i+1},'on')
+                        filelist=[pwd '/*' '.abf'];
+                        filelist=dir(filelist);
+                    elseif length(varargin{i+1})>3
+                        % probably a path, check if folder exist
+                        if exist(varargin{i+1},'dir')
+                            filelist=[pwd '/*' '.abf'];
+                            filelist=dir(filelist);
+                            disp(['Loading folder: ', varargin{i+1}]);
+                        else
+                            error('Unable to locate this folder')
+                        end
+                    elseif strcmp(varargin{i+1},'off')
+                        disp('no folder loaded')
+                        return
+                    else
+                        error('Failed directory command.')
+                    end
                     
                     if isempty(filelist)
                         disp('no .abf files in this folder')
-                        return
                     end
                     
                     % Open all the .abf files as sweepset objects
@@ -99,10 +122,13 @@ classdef sweepset < handle
                     assignin('base',folder_name,combiner)
                     
                     delete(this_sweepset);
-                    return
-                    
+                    Unable_to_read_input=false;
+                    return 
                 end
                 
+                if Unable_to_read_input
+                    error(['Unable to understand input: ', varargin{i}]);
+                end
             end
             
             % Current or voltage clamp
@@ -141,8 +167,13 @@ classdef sweepset < handle
             disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
             axis([0 disp_right floor roof])
                 
-            % Plot all the sweeps, but only the selected sweep is visible            
-            this_sweepset.handles.all_sweeps=plot(this_sweepset.X_data,squeeze(this_sweepset.data(:,1,:)),'b','visible','off');
+            % Plot all the sweeps          
+            this_sweepset.handles.all_sweeps=plot(this_sweepset.X_data,squeeze(this_sweepset.data(:,1,:)),'b','visible','on');
+                for i=1:length(this_sweepset.handles.all_sweeps)
+                    % Adding Button press callbacks to all sweeps
+                    set(this_sweepset.handles.all_sweeps(i),'UserData',i);
+                    set(this_sweepset.handles.all_sweeps(i),'ButtonDownFcN',@this_sweepset.click_on_sweep)
+                end
             this_sweepset.handles.current_sweep=plot(this_sweepset.X_data,this_sweepset.data(:,1,this_sweepset.current_sweep),'r');
             this_sweepset.handles.average_trace=plot(this_sweepset.X_data,this_sweepset.average_trace,'g','visible','off');
             
@@ -195,8 +226,7 @@ classdef sweepset < handle
         end      
         
         function smooth_average(this_sweepset, smooth_factor)
-             SF=this_sweepset.sampling_frequency;
-             this_sweepset.settings.average_smooth=round(smooth_factor)*SF; %will be automatically updated because of the listener to settings
+             this_sweepset.settings.average_smooth=round(smooth_factor); %will be automatically updated because of the listener to settings
         end
         
         function smooth_trace(this_sweepset, input)
@@ -352,6 +382,14 @@ classdef sweepset < handle
                     notify(this_sweepset,'selection_change')
                     % update all plots that are dependend on this variable
                     set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
+                    for i=1:length(this_sweepset.sweep_selection)
+                        if this_sweepset.sweep_selection(i)
+                            this_sweepset.handles.all_sweeps(i).Color=[0 0 1];
+                        else
+                            this_sweepset.handles.all_sweeps(i).Color=[0 0.7 1];
+                        end
+                    end
+                    
                 case 'settings'
                     notify(this_sweepset,'state_change')
                     this_sweepset.data=this_sweepset.base_data;
@@ -361,6 +399,12 @@ classdef sweepset < handle
                         set(this_sweepset.handles.all_sweeps(i),'YData',squeeze(this_sweepset.data(:,1,i)));
                     end
                     set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
+            end
+        end
+        
+        function click_on_sweep(this_sweepset, clicked_sweep, click_info)
+            if click_info.Button==1
+                this_sweepset.move_sweep(clicked_sweep.UserData);
             end
         end
         
