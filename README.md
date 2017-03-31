@@ -1,7 +1,7 @@
 # Ex-vivo-ephys-toolset
 A series of Matlab scripts to import analyze slice electrophysiology recordings collected with Pclamp (Molecular Devices).
 
-The toolset is based on 'abfload.m', which imports .abf files into matlab arrays. Abfload was made by Harald Hentschke and is orriginally available here: https://www.mathworks.com/matlabcentral/fileexchange/6190-abfload.
+The toolset is based on 'abfload.m', which imports .abf files into matlab arrays. Abfload was made by Harald Hentschke and is originally available here: https://www.mathworks.com/matlabcentral/fileexchange/6190-abfload.
 
 # Installation:
 Make sure the following files are available on the Matlab path:
@@ -87,7 +87,7 @@ This will output a matrix ‘matrix_name’ to the Matlab workspace. Column 1 co
 
 	    >> output_sweepset.output_data(‘average’, ‘matrix_name’);
 
-This will output only the average trace in column 2 of matrix ‘matrix_name’, again X-data will be in column 1. The output_data method also works on the trace_combiner window. During creating the trace_combiner object was assigned to the workspace under the name ‘combiner_1’. So the following command will access the method:
+This will output only the average trace in column 2 of matrix ‘matrix_name’, again X-data will be in column 1. The output_data method also works on the trace_combiner window. During creation the trace_combiner object was assigned to the workspace under the name ‘combiner_1’. So the following command will access the method:
 
 	    >> combiner_1.output_data(‘matrix_name’);
 
