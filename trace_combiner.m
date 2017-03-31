@@ -63,7 +63,7 @@ classdef trace_combiner < handle
             different_clamp=false;
             for i=2:np_sweepsets
                 if ~strcmp(this_trace_combiner.Header_data(i).clamp_type, this_trace_combiner.Header_data(i-1).clamp_type)
-                    disp('NOTE: note all sweeps have the same clamp type')
+                    disp('NOTE: Not all sweepsets have the same clamp type')
                     different_clamp=true;
                 end
             end

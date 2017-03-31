@@ -66,13 +66,40 @@ figure(handles.paired_sweepset.handles.figure)
 handles.display_handles.peak_up=text(1,1,'empty','visible','off');
 handles.display_handles.peak_down=text(1,1,'empty','visible','off');
 
+% Deal with input arguments
+for i=1:length(varargin)
+    if ischar(varargin{i}) && strcmp(varargin{i},'start interval')
+        % A start interval is suplied
+        set(handles.measurement_start,'String',num2str(round(varargin{i+1}(1))));
+        set(handles.measurement_end,'String',num2str(round(varargin{i+1}(2))));
+    end
+    if ischar(varargin{i}) && strcmp(varargin{i},'mode')
+        % Measure either average or current trace
+        if strcmp(varargin{i+1}, 'average')
+            set(handles.select_current,'value',0)
+            set(handles.select_average,'value',1)
+        elseif strcmp(varargin{i+1}, 'current')
+            set(handles.select_current,'value',1)
+            set(handles.select_average,'value',0)
+        else
+            error([varargin{i+1}, ' is not a valid measurement mode.']);
+        end 
+        % Display the peak
+        set(handles.display_handles.peak_up,'visible','on')
+        set(handles.display_handles.peak_down,'visible','on')
+        set(handles.display,'value',1)
+    end
+end
+
 % Add listener
 handles.listener=addlistener(handles.paired_sweepset,'state_change',@(scr, ev) update_everything(scr, ev, handles));
 
 % Update handles structure
 guidata(hObject, handles);
+assignin('base','testera',handles)
 
-% Filling variable in the GUI
+% Filling variables in the GUI (Voltage clamp by defaults, this switches to
+% curent clamp)
 set(handles.filename,'String',handles.paired_sweepset.filename)
 if strcmp(handles.paired_sweepset.clamp_type,'Voltage (mV)')
     set(handles.text3,'String','Maximum (mV)')
@@ -84,6 +111,14 @@ find_peak(handles);
 
 % Setting a callback for then this GUI is closed and other callbacks
 set(hObject,'CloseRequestFcn',{@close_req, handles})
+
+% Putting the measure GUI at a location next to the active sweepset on the
+% screen.
+% Location of the sweepset figure:
+hObject.Units='pixels';
+Current_position=hObject.Position;
+Sweepset_position=handles.paired_sweepset.handles.figure.Position;
+hObject.Position=[Sweepset_position(1)+Sweepset_position(3),Sweepset_position(2)+Sweepset_position(4)-Current_position(4),Current_position(3), Current_position(4)];
 
 
 % --- Outputs from this function are returned to the command line.
@@ -214,7 +249,7 @@ if get(handles.select_average,'value')==1
     trace_to_analyse=get(average_trace_handle,'YData');
 
 else
-        trace_to_analyse=paired_sweepset.data(:,1,paired_sweepset.current_sweep);
+    trace_to_analyse=paired_sweepset.data(:,1,paired_sweepset.current_sweep);
 end    
     
 SF=paired_sweepset.sampling_frequency;

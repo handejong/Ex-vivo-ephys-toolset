@@ -18,7 +18,7 @@ classdef sweepset < handle
     %   INPUTS:
     %       - 'user_select', ('on'/'off')           | UI for file selection
     %       - 'filename', 'path/filename'           | open selected file
-    %       - 'directory', ('on'./'off'/filepath)   | will open all files
+    %       - 'directory', ('on'/'off'/filepath)    | will open all files
     %                                                 in pwd or filepath. 
     %
     %   Made by Johannes de Jong, j.w.dejong@berkeley.edu
@@ -26,7 +26,7 @@ classdef sweepset < handle
     
     properties (SetObservable)
         filename            % .abf file
-        file_header         % provide by abfload
+        file_header         % provided by abfload
         data                % sweepset as it is currently used
         original_data       % sweepset as is was imported at startup
         X_data              % X_axis
@@ -36,8 +36,10 @@ classdef sweepset < handle
         handles             % Of all aspects of the figure
         sweep_selection     % sweeps can be either rejected or selected by the user
         current_sweep       % the currently active sweep
+        current_sweep_R     % the current sweep selected with right mouse button
         outside_world       % used when this objects thinks the outside world might want to update something.
         settings            % struct with settings, used for interaction with user and GUI
+        click_info          % information about mouse clicks
     end
     
     properties (Dependent, SetObservable)
@@ -79,7 +81,6 @@ classdef sweepset < handle
                 
                 % Open all .abf files in this directory.
                 if strcmp(varargin{i},'directory')
-                    disp('hoi')
                     
                     % First figure out the directory that should be openend
                     if strcmp(varargin{i+1},'on')
@@ -166,16 +167,59 @@ classdef sweepset < handle
             roof=max(max(this_sweepset.data))+10;
             disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
             axis([0 disp_right floor roof])
-                
+            haxes=findobj(this_sweepset.handles.figure,'type','axes'); %axes handle
+            
+            % This is the context menu (drop down) for the sweeps
+            this_sweepset.handles.drop_down.sweep_menu=uicontextmenu;
+            this_sweepset.handles.drop_down.m1=uimenu(this_sweepset.handles.drop_down.sweep_menu,'Label','include sweep','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.drop_down.m2=uimenu(this_sweepset.handles.drop_down.sweep_menu,'Label','reject sweep','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.drop_down.m3=uimenu(this_sweepset.handles.drop_down.sweep_menu,'Label','smooth 1ms','Callback',@this_sweepset.sweep_context);
+            
+            % This is the context menu (drop down) for the average trace
+            this_sweepset.handles.average_drop_down.menu=uicontextmenu;
+            this_sweepset.handles.average_drop_down.m1=uimenu(this_sweepset.handles.average_drop_down.menu,'Label','measure peak','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.average_drop_down.m2=uimenu(this_sweepset.handles.average_drop_down.menu,'Label','smooth 1ms','Callback',@this_sweepset.sweep_context);
+            
+            % This is the context menu (drop down) for the current trace
+            this_sweepset.handles.current_drop_down.menu=uicontextmenu;
+            this_sweepset.handles.current_drop_down.m1=uimenu(this_sweepset.handles.current_drop_down.menu,'Label','include sweep','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.current_drop_down.m2=uimenu(this_sweepset.handles.current_drop_down.menu,'Label','reject sweep','Callback',@this_sweepset.sweep_context);
+            
+            % This is the context menu (drop down) for the plot as a whole
+            this_sweepset.handles.background_drop_down.menu=uicontextmenu;
+            haxes.UIContextMenu=this_sweepset.handles.background_drop_down.menu;
+            this_sweepset.handles.background_drop_down.m1=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','substract baseline','Callback',@this_sweepset.substract_baseline);
+            this_sweepset.handles.background_drop_down.background_menu=uimenu('Parent',this_sweepset.handles.background_drop_down.menu,'Label','baseline method');
+            this_sweepset.handles.background_drop_down.n1=uimenu('Parent', this_sweepset.handles.background_drop_down.background_menu,'Label','standard','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.n2=uimenu('Parent', this_sweepset.handles.background_drop_down.background_menu,'Label','whole trace','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.n3=uimenu('Parent', this_sweepset.handles.background_drop_down.background_menu,'Label','moving average 1s','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m2=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display average','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m3=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display all sweeps','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m4=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','refocus','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m5=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','combine sweepsets','Callback',@this_sweepset.sweep_context);
+
+ 
             % Plot all the sweeps          
             this_sweepset.handles.all_sweeps=plot(this_sweepset.X_data,squeeze(this_sweepset.data(:,1,:)),'b','visible','on');
                 for i=1:length(this_sweepset.handles.all_sweeps)
                     % Adding Button press callbacks to all sweeps
                     set(this_sweepset.handles.all_sweeps(i),'UserData',i);
                     set(this_sweepset.handles.all_sweeps(i),'ButtonDownFcN',@this_sweepset.click_on_sweep)
+                    % Adding the drop down menu to all sweeps
+                    this_sweepset.handles.all_sweeps(i).UIContextMenu = this_sweepset.handles.drop_down.sweep_menu;
                 end
+                
+            % Plot the current sweep (in red)
             this_sweepset.handles.current_sweep=plot(this_sweepset.X_data,this_sweepset.data(:,1,this_sweepset.current_sweep),'r');
+            set(this_sweepset.handles.current_sweep,'UserData','current_sweep');
+            set(this_sweepset.handles.current_sweep,'ButtonDownFcN',@this_sweepset.click_on_sweep)
+            this_sweepset.handles.current_sweep.UIContextMenu = this_sweepset.handles.drop_down.sweep_menu;
+            
+            % Plot the average trace (in green)
             this_sweepset.handles.average_trace=plot(this_sweepset.X_data,this_sweepset.average_trace,'g','visible','off');
+            set(this_sweepset.handles.average_trace,'UserData','average_trace');
+            set(this_sweepset.handles.average_trace,'ButtonDownFcN',@this_sweepset.click_on_sweep)
+            this_sweepset.handles.average_trace.UIContextMenu = this_sweepset.handles.average_drop_down.menu;
             
             % Add listener
             addlistener(this_sweepset,'sweep_selection','PostSet',@this_sweepset.plot_update);
@@ -207,12 +251,11 @@ classdef sweepset < handle
             end   
         end
         
-        function substract_baseline(this_sweepset)
+        function substract_baseline(varargin)
             % substract baseline
             % note: there are different baseline methods, see the baseline
             % function.
-            figure(this_sweepset.handles.figure)
-            
+            this_sweepset=varargin{1};
             this_sweepset.settings.baseline_info.substracted=~ this_sweepset.settings.baseline_info.substracted;
         end        
               
@@ -304,7 +347,7 @@ classdef sweepset < handle
                 case true
                     base_data=this_sweepset.original_data-this_sweepset.baseline;
                 case false
-                    base_data=this_sweepset.original_data; %But this is wrong, because trace can be smoothed
+                    base_data=this_sweepset.original_data;
             end
             
             % now checking if the traces are suposed to be smooth
@@ -315,6 +358,8 @@ classdef sweepset < handle
                     end
             end
             
+            % here we should add any other manipulations that can be
+            % performed on the base data
             
         end
         
@@ -380,6 +425,7 @@ classdef sweepset < handle
             switch ev.Name
                 case 'sweep_selection'
                     notify(this_sweepset,'selection_change')
+                    notify(this_sweepset,'state_change')
                     % update all plots that are dependend on this variable
                     set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
                     for i=1:length(this_sweepset.sweep_selection)
@@ -391,7 +437,6 @@ classdef sweepset < handle
                     end
                     
                 case 'settings'
-                    notify(this_sweepset,'state_change')
                     this_sweepset.data=this_sweepset.base_data;
                     set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
                     set(this_sweepset.handles.current_sweep,'YData',this_sweepset.data(:,1,this_sweepset.current_sweep));
@@ -399,12 +444,41 @@ classdef sweepset < handle
                         set(this_sweepset.handles.all_sweeps(i),'YData',squeeze(this_sweepset.data(:,1,i)));
                     end
                     set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
+                    
+                    notify(this_sweepset,'state_change')
             end
         end
         
         function click_on_sweep(this_sweepset, clicked_sweep, click_info)
-            if click_info.Button==1
+            % Deals with both left and right clicks on all sweeps.
+            % So later should include check for average sweep and current
+            % sweep, because those are plotted on top.
+            
+            % Making sure other functions know where the user clicked
+            this_sweepset.click_info=click_info;
+            
+            if click_info.Button==1 && ~ischar(clicked_sweep.UserData)
                 this_sweepset.move_sweep(clicked_sweep.UserData);
+            end
+            
+            if click_info.Button==3
+                this_sweepset.current_sweep_R=clicked_sweep.UserData;
+                % Adapting the drop down to only show usefull options
+                if ischar(clicked_sweep.UserData)
+                    if strcmp(clicked_sweep.UserData,'current_sweep')
+                         this_sweepset.current_sweep_R=this_sweepset.current_sweep;
+                    end
+                else
+                    if this_sweepset.sweep_selection(clicked_sweep.UserData)
+                         set(this_sweepset.handles.drop_down.m1,'Visible','off')
+                         set(this_sweepset.handles.drop_down.m2,'Visible','on')
+                    else
+                        set(this_sweepset.handles.drop_down.m1,'Visible','on')
+                        set(this_sweepset.handles.drop_down.m2,'Visible','off')
+                    end
+                    this_sweepset.current_sweep_R=clicked_sweep.UserData;
+                end
+                
             end
         end
         
@@ -426,6 +500,76 @@ classdef sweepset < handle
             delete(this_sweepset)
         end
         
+        function sweep_context(this_sweepset, scr, ev)
+            % Drop down menu when the user righ-clicks a sweep
+            
+            switch scr.Label
+                case 'include sweep'
+                    this_sweepset.sweep_selection(this_sweepset.current_sweep_R)=true;
+                    notify(this_sweepset,'state_change')
+                case 'reject sweep'
+                    this_sweepset.sweep_selection(this_sweepset.current_sweep_R)=false;
+                    notify(this_sweepset,'state_change')
+                case 'display average'
+                     status=get(this_sweepset.handles.average_trace,'visible');
+                    if strcmp(status,'off')
+                        set(this_sweepset.handles.average_trace,'visible','on')
+                    else
+                        set(this_sweepset.handles.average_trace,'visible','off')
+                    end
+                case 'display all sweeps'
+                    status=get(this_sweepset.handles.all_sweeps(1),'visible');
+                    if strcmp(status,'off')
+                        set(this_sweepset.handles.all_sweeps,'visible','on')
+                    else
+                        set(this_sweepset.handles.all_sweeps,'visible','off')
+                    end
+                case 'standard'
+                    this_sweepset.settings.baseline_info.method='standard';
+                case 'whole trace'
+                    this_sweepset.settings.baseline_info.method='whole_trace';
+                case 'moving average 1s'
+                    this_sweepset.settings.baseline_info.method='moving_average_1s';
+                case 'refocus'
+                    floor=min(min(this_sweepset.data))-10;
+                    roof=max(max(this_sweepset.data))+10;
+                    disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
+                    axis([0 disp_right floor roof])
+                case 'combine sweepsets'
+                    combiner_1=trace_combiner;
+                    assignin('base','combiner_1',combiner_1);
+                case 'measure peak'
+                    % Figure out where and on what was clicked
+                    x_click_location=this_sweepset.click_info.IntersectionPoint(1);
+                    
+                    % Check if the average trace or any other trace should
+                    % be measured.
+                    if strcmp(this_sweepset.click_info.Source.UserData,'average_trace')
+                        selection_mode='average';
+                    else
+                        selection_mode='current';
+                    end
+                    
+                     this_sweepset.handles.measurement=measure(this_sweepset,'start interval',[x_click_location-10, x_click_location+10],'mode',selection_mode);
+                case 'smooth 1ms'
+                    % figure out if cliced on average trace or other trace
+                    if strcmp(this_sweepset.click_info.Source.UserData,'average_trace')
+                        this_sweepset.smooth_average(1);
+                        set(this_sweepset.handles.average_drop_down.m2,'label','undo smooth')
+                    else
+                        this_sweepset.smooth_trace(1);
+                        set(this_sweepset.handles.drop_down.m3,'label','undo smooth')
+                    end
+                case 'undo smooth'
+                    if strcmp(this_sweepset.click_info.Source.UserData,'average_trace')
+                        this_sweepset.smooth_average(0);
+                        set(this_sweepset.handles.average_drop_down.m2,'label','smooth 1ms')
+                    else
+                        this_sweepset.smooth_trace('undo');
+                        set(this_sweepset.handles.drop_down.m3,'label','smooth 1ms')
+                    end
+            end  
+        end 
     end
     
     events
