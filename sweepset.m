@@ -26,6 +26,7 @@ classdef sweepset < handle
     
     properties (SetObservable)
         filename            % .abf file
+        filepath            % path to file (including filename)
         file_header         % provided by abfload
         data                % sweepset as it is currently used
         original_data       % sweepset as is was imported at startup
@@ -58,8 +59,10 @@ classdef sweepset < handle
             Unable_to_read_input=true; %untill proven otherwise    
                 % open input filename
                 if strcmp(varargin{i},'filename')
-                    this_sweepset.filename=varargin{i+1};
-                    [this_sweepset.data, sampling_interval, this_sweepset.file_header]=abfload(this_sweepset.filename);
+                    [~, name_only, ~]=fileparts(varargin{i+1});
+                    this_sweepset.filepath=varargin{i+1};
+                    this_sweepset.filename=name_only;
+                    [this_sweepset.data, sampling_interval, this_sweepset.file_header]=abfload(this_sweepset.filepath);
                     this_sweepset.sampling_frequency=10^3/sampling_interval; % The sampling frequency in kHz 
                     Unable_to_read_input=false;
                 end
@@ -84,12 +87,14 @@ classdef sweepset < handle
                     
                     % First figure out the directory that should be openend
                     if strcmp(varargin{i+1},'on')
+                        path=pwd;
                         filelist=[pwd '/*' '.abf'];
                         filelist=dir(filelist);
                     elseif length(varargin{i+1})>3
                         % probably a path, check if folder exist
                         if exist(varargin{i+1},'dir')
-                            filelist=[pwd '/*' '.abf'];
+                            path=varargin{i+1};
+                            filelist=[varargin{i+1}, '/*' '.abf'];
                             filelist=dir(filelist);
                             disp(['Loading folder: ', varargin{i+1}]);
                         else
@@ -108,21 +113,23 @@ classdef sweepset < handle
                     
                     % Open all the .abf files as sweepset objects
                     for j=1:length(filelist)
-                        object=sweepset('filename',filelist(j).name);
+                        object=sweepset('filename',[path '/' filelist(j).name]);
                         name=['S_' object.filename(object.filename~=' ' & object.filename~='.' & object.filename~='+' & object.filename~='-')];
+                        % Instead of data, this object will have handles to
+                        % all other sweepsets as the data property 
                         assignin('base',name,object); % Printing them all to the workspace
+                        this_sweepset.data{j}=object;
                     end
                     
                     % Get the name of this folder
                     [~, folder_name, ~]=fileparts(pwd);
                     folder_name=folder_name(folder_name~=' ' & folder_name~='+' & folder_name~='-' & folder_name~='.');
                     
-                    combiner=trace_combiner;
+                    combiner=trace_combiner('object_list',this_sweepset.data);
                     
                     % Storing the handle to the combiner in the workspace
                     assignin('base',folder_name,combiner)
                     
-                    delete(this_sweepset);
                     Unable_to_read_input=false;
                     return 
                 end
@@ -151,6 +158,8 @@ classdef sweepset < handle
             this_sweepset.settings.average_smooth=0;
             this_sweepset.settings.smoothed=false;
             this_sweepset.settings.smooth_factor=0;
+            this_sweepset.settings.mouse_release=false;
+            this_sweepset.settings.dragdrop=''; % What is currently being draged
             
             % Make a figure
             this_sweepset.handles.figure=figure('position',[-1840,-137,700,500]);
@@ -159,6 +168,7 @@ classdef sweepset < handle
             
             % Add callbacks to the figure
             set(this_sweepset.handles.figure,'keypressfcn',@this_sweepset.key_press);
+            set(this_sweepset.handles.figure,'WindowButtonUPFcN',@this_sweepset.mouse_release);
                 
             % Figure axis
             xlabel('time (ms)')
@@ -199,9 +209,10 @@ classdef sweepset < handle
             this_sweepset.handles.background_drop_down.n3=uimenu('Parent', this_sweepset.handles.background_drop_down.background_menu,'Label','moving average 1s','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.background_drop_down.m2=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display average','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.background_drop_down.m3=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display all sweeps','Callback',@this_sweepset.sweep_context);
-            this_sweepset.handles.background_drop_down.m4=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','refocus','Callback',@this_sweepset.sweep_context);
-            this_sweepset.handles.background_drop_down.m5=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','combine sweepsets','Callback',@this_sweepset.sweep_context);
-            this_sweepset.handles.backgorund_drop_down.m6=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','export data','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m4=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display baseline','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m5=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','refocus','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m6=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','combine sweepsets','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.backgorund_drop_down.m7=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','export data','Callback',@this_sweepset.sweep_context);
  
             % Plot all the sweeps          
             this_sweepset.handles.all_sweeps=plot(this_sweepset.X_data,squeeze(this_sweepset.data(:,1,:)),'b','visible','on');
@@ -226,6 +237,12 @@ classdef sweepset < handle
             set(this_sweepset.handles.average_trace,'ButtonDownFcN',@this_sweepset.click_on_sweep)
             this_sweepset.handles.average_trace.UIContextMenu = this_sweepset.handles.average_drop_down.menu;
             
+            % Plot vertical lines that indicate baseline start and stop
+            this_sweepset.handles.baseline.start=line([this_sweepset.settings.baseline_info.start, this_sweepset.settings.baseline_info.start],[-20000 20000],'Visible','off',...
+                'LineStyle','--','ButtonDownFcn',@this_sweepset.baseline_indicators);
+            this_sweepset.handles.baseline.end=line([this_sweepset.settings.baseline_info.end, this_sweepset.settings.baseline_info.end],[-20000 20000],'Visible','off',...
+                'LineStyle','--','ButtonDownFcn',@this_sweepset.baseline_indicators);
+            
             % Add listener
             addlistener(this_sweepset,'sweep_selection','PostSet',@this_sweepset.plot_update);
             addlistener(this_sweepset,'settings','PostSet',@this_sweepset.plot_update);
@@ -239,10 +256,18 @@ classdef sweepset < handle
             % Add a callback for a close request
             set(this_sweepset.handles.figure,'CloseRequestFcn', @this_sweepset.close_req)
             
+            % Callback when the window is clicked on
+            set(this_sweepset.handles.figure,'WindowButtonDownFcn',@(scr,ev)notify(this_sweepset,'sweepset_clicked'))
+            
             % Final settings
             this_sweepset.handles.measurement='not a handle'; % no measuremenet open
             this_sweepset.handles.firing_frequency='not a handle'; % no FF measurement open
             
+        end
+        
+        function test_function(varargin)
+            % This function is just for debuging of callbacks
+            disp('hoi hoi hoi, I am active')
         end
         
         function move_sweep(this_sweepset, new_selected_sweep)
@@ -340,6 +365,18 @@ classdef sweepset < handle
                 set(this_sweepset.handles.all_sweeps(i),'YData',squeeze(this_sweepset.data(:,1,i)));
              end
             
+        end
+        
+        function show_baseline(this_sweepset)
+            % Show the start and the stop timepoints of the substracted
+            % baseline under 'standard'.
+            if strcmp(this_sweepset.handles.baseline.start.Visible,'on')
+                this_sweepset.handles.baseline.start.Visible='off';
+                this_sweepset.handles.baseline.end.Visible='off';
+            else
+                this_sweepset.handles.baseline.start.Visible='on';
+                this_sweepset.handles.baseline.end.Visible='on';
+            end
         end
         
         function baseline=get.baseline(this_sweepset)
@@ -447,8 +484,6 @@ classdef sweepset < handle
                     combiner_1=trace_combiner;
                     assignin('base','combiner_1',combiner_1);
             end
-            
-            notify(this_sweepset,'state_change')
         end
         
         function plot_update(this_sweepset, ev, ~)
@@ -628,8 +663,59 @@ classdef sweepset < handle
                     output_matrix(output_matrix==' ')='_'; %removing spaces
                     this_sweepset.output_data('average',output_matrix);
                     disp('Data stored in workspace')
+                case 'display baseline'
+                    this_sweepset.show_baseline;
             end  
         end 
+        
+        function baseline_indicators(this_sweepset, scr, ev)
+            % This function controls the behavior of the lines indicating
+            % start and stop of the baseline.
+            this_sweepset.settings.mouse_release=false;
+            
+            
+            set(this_sweepset.handles.figure,'WindowButtonMotionFcN',@this_sweepset.mouse_motion)
+            
+            punter=get(gca,'CurrentPoint');
+            
+            if abs(punter(1,1)-this_sweepset.settings.baseline_info.end)<=abs(punter(1,1)-this_sweepset.settings.baseline_info.start)
+                this_sweepset.settings.dragdrop='baseline_end';
+            else
+                this_sweepset.settings.dragdrop='baseline_start';
+            end          
+        end
+        
+        function mouse_release(this_sweepset, scr, ev)
+            % This function registeres mouse release (for drag and drop
+            % functionality)
+            this_sweepset.settings.mouse_release=true;
+            
+            set(this_sweepset.handles.figure,'WindowButtonMotionFcN','')
+        end
+        
+        function mouse_motion(this_sweepset, scr, ev)
+            % This function registers mouse motion (for drag and drop
+            % functionality)
+            
+            punter=get(gca,'CurrentPoint');
+            
+            % Figure out what is being draged
+            switch this_sweepset.settings.dragdrop
+                case 'baseline_end'
+                     if punter(1,1)<=this_sweepset.settings.baseline_info.start
+                        punter(1,1)=this_sweepset.settings.baseline_info.start+1;
+                    end
+                    set(this_sweepset.handles.baseline.end,'Xdata',[punter(1,1) punter(1,1)]);
+                    this_sweepset.settings.baseline_info.end=round(punter(1,1));
+                case 'baseline_start'
+                    if punter(1,1)>=this_sweepset.settings.baseline_info.end
+                        punter(1,1)=this_sweepset.settings.baseline_info.end-1;
+                    end
+                    set(this_sweepset.handles.baseline.start,'Xdata',[punter(1,1) punter(1,1)]);
+                    this_sweepset.settings.baseline_info.start=round(punter(1,1));
+            end     
+        end
+        
     end
     
     events
@@ -637,6 +723,7 @@ classdef sweepset < handle
       selection_change  % only fires when selected sweep changes
       baseline_change   % only fires when the baseline changes
       sweepset_closed   % fires when this sweepset window is closed
+      sweepset_clicked  % sweepset clicked on, prob active now
     end
         
         

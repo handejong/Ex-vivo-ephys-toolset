@@ -25,10 +25,23 @@ classdef trace_combiner < handle
         
         function this_trace_combiner=trace_combiner(varargin)
         % Constructor.
+            
+        % Deal with input arguments
+        objects_found=false;
+        for i=1:length(varargin)
+            if strcmp(varargin{i},'object_list')
+                linked_objects=varargin{i+1};
+                assignin('base','testera',linked_objects)
+                objects_found=true;
+                np_sweepsets=size(linked_objects);
+                np_sweepsets=np_sweepsets(2);
+            end
+        end
         
+        if ~objects_found
+            % see if base created any sweepsets
             all_objects=get(0,'children');
             np_sweepsets=0;
-            
             for i=1:length(all_objects)
                 object_name=all_objects(i).Name;
                 if length(object_name)>4 && strcmp(all_objects(i).Name(end-3:end),'.abf')
@@ -36,10 +49,12 @@ classdef trace_combiner < handle
                     % Yes, we check if the objects are sweepsets using the
                     % window name.
                     
-                    linked_objects(np_sweepsets)=getappdata(all_objects(i),'object');
+                    linked_objects{np_sweepsets}=getappdata(all_objects(i),'object');
                    
                 end
             end
+        end
+            
             disp(['Number of sweepsets found: ',num2str(np_sweepsets)]);
             this_trace_combiner.linked_objects=linked_objects;
              
@@ -50,12 +65,12 @@ classdef trace_combiner < handle
             
             % Linking all open sweepsets
             for i=1:np_sweepsets  
-                this_trace_combiner.data_names{i}=linked_objects(i).filename; % store the filenames
-                plot_listeners(i)=addlistener(linked_objects(i),'state_change',@this_trace_combiner.update_plot);
-                this_trace_combiner.Y_data{i}=linked_objects(i).average_trace;
-                this_trace_combiner.X_data{i}=linked_objects(i).X_data;
-                this_trace_combiner.Header_data(i).clamp_type=linked_objects(i).clamp_type;
-                this_trace_combiner.Header_data(i).sampling_frequency=linked_objects(i).sampling_frequency;
+                this_trace_combiner.data_names{i}=linked_objects{i}.filename; % store the filenames
+                plot_listeners(i)=addlistener(linked_objects{i},'state_change',@this_trace_combiner.update_plot);
+                this_trace_combiner.Y_data{i}=linked_objects{i}.average_trace;
+                this_trace_combiner.X_data{i}=linked_objects{i}.X_data;
+                this_trace_combiner.Header_data(i).clamp_type=linked_objects{i}.clamp_type;
+                this_trace_combiner.Header_data(i).sampling_frequency=linked_objects{i}.sampling_frequency;
             end
             this_trace_combiner.plot_listeners=plot_listeners;
             
@@ -75,9 +90,9 @@ classdef trace_combiner < handle
                 elseif different_clamp
                     yyaxis left
                 end  
-                this_trace_combiner.plot_handles(i)=plot(linked_objects(i).X_data,linked_objects(i).average_trace);
+                this_trace_combiner.plot_handles(i)=plot(linked_objects{i}.X_data,linked_objects{i}.average_trace);
                 this_trace_combiner.Header_data(i).color=get(this_trace_combiner.plot_handles(i),'Color'); % Store the original color
-                set(this_trace_combiner.plot_handles(i),'DisplayName',linked_objects(i).filename,'ButtonDownFcN',@this_trace_combiner.click_on_trace); % filename in the trace (for auto legend) and now you can click on the traces
+                set(this_trace_combiner.plot_handles(i),'DisplayName',linked_objects{i}.filename,'ButtonDownFcN',@this_trace_combiner.click_on_trace); % filename in the trace (for auto legend) and now you can click on the traces
             end
                 
             % Figure axis
@@ -88,7 +103,7 @@ classdef trace_combiner < handle
                 yyaxis right
                 ylabel('Voltage (mV)')
             else
-                ylabel(linked_objects(1).clamp_type)
+                ylabel(linked_objects{1}.clamp_type)
             end
 
             % Figure legend
@@ -162,12 +177,12 @@ classdef trace_combiner < handle
             % Update plot after linked sweepsets or settings change
             % Also checking if the linked sweepsets still exist.
             for i=1:length(this_trace_combiner.plot_handles)
-                if isvalid(this_trace_combiner.linked_objects(i)) && this_trace_combiner.data_selection(i)
-                    av_plot=this_trace_combiner.linked_objects(i).average_trace; %otherwise it will recalculate twice (because it is a dependend variable)
+                if isvalid(this_trace_combiner.linked_objects{i}) && this_trace_combiner.data_selection(i)
+                    av_plot=this_trace_combiner.linked_objects{i}.average_trace; %otherwise it will recalculate twice (because it is a dependend variable)
                     set(this_trace_combiner.plot_handles(i),'YData',av_plot,'Visible','on');
-                    this_trace_combiner.Y_data{i}=av_plot;
-                elseif isvalid(this_trace_combiner.linked_objects(i))
-                    set(this_trace_combiner.plot_handles(i),'YData',this_trace_combiner.linked_objects(i).average_trace,'Visible','off');
+                    this_trace_combiner.Y_data(i)={av_plot};
+                elseif isvalid(this_trace_combiner.linked_objects{i})
+                    set(this_trace_combiner.plot_handles(i),'YData',this_trace_combiner.linked_objects{i}.average_trace,'Visible','off');
                 elseif this_trace_combiner.data_selection(i)
                     set(this_trace_combiner.plot_handles(i),'Visible','on');
                 else
@@ -185,18 +200,18 @@ classdef trace_combiner < handle
                     if strcmp(clicked_plot.DisplayName, this_trace_combiner.data_names{i})
                         this_trace_combiner.current_trace=i;
                         clicked_plot.Color=[0 1 0];
-                        if isvalid(this_trace_combiner.linked_objects(i))
-                            figure(this_trace_combiner.linked_objects(i).handles.figure)
+                        if isvalid(this_trace_combiner.linked_objects{i})
+                            figure(this_trace_combiner.linked_objects{i}.handles.figure)
                         else
                             % Try and open the file?
                             if exist(clicked_plot.DisplayName,'file')
-                                this_trace_combiner.linked_objects(i)=sweepset('filename',clicked_plot.DisplayName);
+                                this_trace_combiner.linked_objects{i}=sweepset('filename',clicked_plot.DisplayName);
                                 
                                 % Should check if this file is really the
                                 % correct trace and display it properly.
                                 % (e.g. baseline subtracted etc...)
                                 
-                                this_sweep_combiner.plot_listeners(i)=addlistener(this_trace_combiner.linked_objects(i),'state_change',@this_trace_combiner.update_plot);
+                                this_sweep_combiner.plot_listeners(i)=addlistener(this_trace_combiner.linked_objects{i},'state_change',@this_trace_combiner.update_plot);
                             end
                         end
                     else

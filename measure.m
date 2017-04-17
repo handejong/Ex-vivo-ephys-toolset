@@ -96,7 +96,6 @@ handles.listener=addlistener(handles.paired_sweepset,'state_change',@(scr, ev) u
 
 % Update handles structure
 guidata(hObject, handles);
-assignin('base','testera',handles)
 
 % Filling variables in the GUI (Voltage clamp by defaults, this switches to
 % curent clamp)
