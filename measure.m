@@ -22,7 +22,7 @@ function varargout = measure(varargin)
 
 % Edit the above text to modify the response to help measure
 
-% Last Modified by GUIDE v2.5 17-Dec-2016 13:15:21
+% Last Modified by GUIDE v2.5 08-Aug-2017 14:49:54
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -219,6 +219,32 @@ else
 end
 
 
+% --- Executes on button press in AUC.
+function AUC_Callback(hObject, eventdata, handles)
+% hObject    handle to AUC (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+paired_sweepset=handles.paired_sweepset;
+start_time=str2num(get(handles.measurement_start,'String'));
+end_time=str2num(get(handles.measurement_end,'String'));
+
+[~, start_index]=min(abs(paired_sweepset.X_data-start_time));
+[~, end_index]=min(abs(paired_sweepset.X_data-end_time));
+
+results=zeros(paired_sweepset.number_of_sweeps,1);
+for i=1:paired_sweepset.number_of_sweeps
+    results(i)=sum(paired_sweepset.data(start_index:end_index,1,i));
+end
+results=results(paired_sweepset.sweep_selection);
+
+figure()
+plot(results)
+xlabel('sweep #')
+ylabel('Y values')
+assignin('base','testera',results)
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % just to make sure that not only this GUI, but also it's associated
@@ -252,16 +278,22 @@ else
 end    
     
 SF=paired_sweepset.sampling_frequency;
+timeline=squeeze(paired_sweepset.X_data);
+start_time=str2num(get(handles.measurement_start,'String'));
+end_time=str2num(get(handles.measurement_end,'String'));
 
-measurement_start=str2num(get(handles.measurement_start,'String'))*SF;
-measurement_end=str2num(get(handles.measurement_end,'String'))*SF;
+
+[~, measurement_start]=min(abs(timeline-start_time));
+[~, measurement_end]=min(abs(timeline-end_time));
+%measurement_start=round(str2num(get(handles.measurement_start,'String'))*SF);
+%measurement_end=round(str2num(get(handles.measurement_end,'String'))*SF);
 
 
 [peak.up, peak.location_up]=max(trace_to_analyse(measurement_start:measurement_end));
 [peak.down, peak.location_down]=min(trace_to_analyse(measurement_start:measurement_end));
 
-peak.location_up=(peak.location_up+measurement_start)/SF;
-peak.location_down=(peak.location_down+measurement_start)/SF;
+peak.location_up=timeline(peak.location_up+measurement_start);
+peak.location_down=timeline(peak.location_down+measurement_start);
 
 display_text_up= ['\leftarrow     ',num2str(peak.up)];
 display_text_down= ['\leftarrow     ',num2str(peak.down)];
@@ -272,3 +304,10 @@ set(handles.display_handles.peak_down,'Position',[peak.location_down,peak.down,0
 % updating displayed vallues
 set(handles.maximum,'String',num2str(peak.up))
 set(handles.minimum,'String',num2str(peak.down))
+
+
+
+
+
+
+

@@ -19,7 +19,11 @@ classdef sweepset < handle
     %       - 'user_select', ('on'/'off')           | UI for file selection
     %       - 'filename', 'path/filename'           | open selected file
     %       - 'directory', ('on'/'off'/filepath)    | will open all files
-    %                                                 in pwd or filepath. 
+    %                                                 in pwd or filepath.
+    %       - 'other data', (dataset (matrix))      | import matrix, every
+    %                                                 row as 'sweep'. Note:
+    %                                                 top row has to be
+    %                                                 timeline in ms!
     %
     %   Made by Johannes de Jong, j.w.dejong@berkeley.edu
     
@@ -52,11 +56,12 @@ classdef sweepset < handle
     methods
         
         function this_sweepset = sweepset(varargin)
+            % Preliminary settings: (will be more later)
+            X_data_unset=true; %
             
             % Deal with arguments
-            
             for i=1:2:nargin
-            Unable_to_read_input=true; %untill proven otherwise    
+            Unable_to_read_input=true; %untill proven otherwise
                 % open input filename
                 if strcmp(varargin{i},'filename')
                     [~, name_only, ~]=fileparts(varargin{i+1});
@@ -69,7 +74,7 @@ classdef sweepset < handle
                 
                 % allow the user to select file (trumps input filename)
                 if strcmp(varargin{i},'user_select') && strcmp(varargin{i+1},'on')
-                    [temp_filename, path] = uigetfile({'*.abf'},'select files','MultiSelect','off');
+                    [temp_filename, path] = uigetfile({'*.abf'},'select file','MultiSelect','off');
                     if temp_filename==0
                         delete(this_sweepset)
                         disp('no file selected')
@@ -131,7 +136,20 @@ classdef sweepset < handle
                     assignin('base',folder_name,combiner)
                     
                     Unable_to_read_input=false;
-                    return 
+                    return % because not reading other arguments when using directory input
+                end
+                
+                if strcmp(varargin{i},'other data') % importing non-ephys data
+                    Unable_to_read_input=false;
+                    data=varargin{i+1};
+                    this_sweepset.X_data=data(1,:);
+                    X_data_unset=false; % Do not reset X_data later (see below)
+                    data=data(2:end,:)'; % Because abfload stores data differently
+                    dims=size(data);
+                    this_sweepset.data=zeros(dims(1),1,dims(2)); % Because sweepset files can have multiple channels
+                    this_sweepset.data(:,1,:)=data;
+                    this_sweepset.sampling_frequency=(length(this_sweepset.X_data)-1)/(this_sweepset.X_data(1,end)-this_sweepset.X_data(1,1)); %in KHz
+                    this_sweepset.file_header.recChUnits={'other'};
                 end
                 
                 if Unable_to_read_input
@@ -147,7 +165,9 @@ classdef sweepset < handle
             end
             
             % Setting other variables
-            this_sweepset.X_data=[0:1/this_sweepset.sampling_frequency:(length(this_sweepset.data)/this_sweepset.sampling_frequency)-(1/this_sweepset.sampling_frequency)];
+            if X_data_unset
+                this_sweepset.X_data=[0:1/this_sweepset.sampling_frequency:(length(this_sweepset.data)/this_sweepset.sampling_frequency)-(1/this_sweepset.sampling_frequency)];
+            end
             this_sweepset.current_sweep=1;
             this_sweepset.number_of_sweeps=length(this_sweepset.data(1,1,:));
             this_sweepset.sweep_selection=true(1,this_sweepset.number_of_sweeps);
@@ -158,6 +178,7 @@ classdef sweepset < handle
             this_sweepset.settings.average_smooth=0;
             this_sweepset.settings.smoothed=false;
             this_sweepset.settings.smooth_factor=0;
+            this_sweepset.settings.noise_removal.spikes=false;
             this_sweepset.settings.mouse_release=false;
             this_sweepset.settings.dragdrop=''; % What is currently being draged
             
@@ -173,10 +194,11 @@ classdef sweepset < handle
             % Figure axis
             xlabel('time (ms)')
             ylabel(this_sweepset.clamp_type)              
-            floor=min(min(this_sweepset.data))-10;
-            roof=max(max(this_sweepset.data))+10;
-            disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
-            axis([0 disp_right floor roof])
+            floor=min(min(this_sweepset.data));
+            roof=max(max(this_sweepset.data));
+            difference=0.1*(roof-floor);
+            %disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
+            axis([this_sweepset.X_data(1) this_sweepset.X_data(end) floor-difference roof+difference])
             haxes=findobj(this_sweepset.handles.figure,'type','axes'); %axes handle
             
             % This is the context menu (drop down) for the sweeps
@@ -213,8 +235,9 @@ classdef sweepset < handle
             this_sweepset.handles.background_drop_down.m5=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','refocus','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.background_drop_down.m6=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','combine sweepsets','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.backgorund_drop_down.m7=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','export data','Callback',@this_sweepset.sweep_context);
- 
-            % Plot all the sweeps          
+            this_sweepset.handles.backgorund_drop_down.m8=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','heatmap','Callback',@this_sweepset.sweep_context);
+            
+            % Plot all the sweeps
             this_sweepset.handles.all_sweeps=plot(this_sweepset.X_data,squeeze(this_sweepset.data(:,1,:)),'b','visible','on');
                 for i=1:length(this_sweepset.handles.all_sweeps)
                     % Adding Button press callbacks to all sweeps
@@ -239,9 +262,9 @@ classdef sweepset < handle
             
             % Plot vertical lines that indicate baseline start and stop
             this_sweepset.handles.baseline.start=line([this_sweepset.settings.baseline_info.start, this_sweepset.settings.baseline_info.start],[-20000 20000],'Visible','off',...
-                'LineStyle','--','ButtonDownFcn',@this_sweepset.baseline_indicators);
+                'LineStyle','--','ButtonDownFcn',@this_sweepset.baseline_indicators,'Tag','baseline_start');
             this_sweepset.handles.baseline.end=line([this_sweepset.settings.baseline_info.end, this_sweepset.settings.baseline_info.end],[-20000 20000],'Visible','off',...
-                'LineStyle','--','ButtonDownFcn',@this_sweepset.baseline_indicators);
+                'LineStyle','--','ButtonDownFcn',@this_sweepset.baseline_indicators,'Tag','baseline_end');
             
             % Add listener
             addlistener(this_sweepset,'sweep_selection','PostSet',@this_sweepset.plot_update);
@@ -310,14 +333,13 @@ classdef sweepset < handle
                     this_sweepset.settings.smoothed=false;
                     disp('smoothing undone')
                 else
-                    disp('unrecognized input')
+                    error(['unrecognized input: ' input]);
                 end
             else
-                this_sweepset.settings.smoothed=true;
                 this_sweepset.settings.smooth_factor=input;
+                this_sweepset.settings.smoothed=true;
                 disp(['Data smoothed by ' num2str(input) 'ms']);
             end
-            
         end
         
         function output_data(this_sweepset, options, matrix_name)
@@ -379,13 +401,47 @@ classdef sweepset < handle
             end
         end
         
+        function remove_noise(this_sweepset, noise_type)
+            % This function will remove different types of noice from the
+            % data
+            
+            switch noise_type
+                case 'spikes'
+                    % Will remove 1-2ms >5std 'spike' artifacts caused by
+                    % (in our case) the perfusion pump.
+                    this_sweepset.settings.noise_removal.spikes=~this_sweepset.settings.noise_removal.spikes; 
+                otherwise
+                    disp('Noise type not recognized');
+            end
+        end
+        
+        function heat_plot(this_sweepset)
+            % Will present a nice plot (al sweeps as well as average
+            % and SEM)
+            
+            presentation=figure();
+            % Presentation:
+            subplot(2,1,1)
+            results=squeeze(this_sweepset.data(:,:,this_sweepset.sweep_selection))';
+            imagesc(results(:,:));
+            subplot(2,1,2)
+            XData=this_sweepset.X_data;
+            sem_results=std(results)./sqrt(this_sweepset.number_of_sweeps);
+            fill([XData';flipud(XData')],[mean(results)'-sem_results';flipud(mean(results)'+sem_results')],[0 0 1],'linestyle','none','FaceAlpha',0.3);
+            hold on
+            plot(XData,mean(results));
+            xlabel('Time (ms)')
+            ylabel('Y_values')
+  
+        end
+        
         function baseline=get.baseline(this_sweepset)
             
             switch this_sweepset.settings.baseline_info.method
                 case 'standard'
                     % standard is substract value between start and end
-                    start_point=this_sweepset.settings.baseline_info.start*this_sweepset.sampling_frequency;
-                    end_point=this_sweepset.settings.baseline_info.end*this_sweepset.sampling_frequency;
+                    [~, start_point]=min(abs(this_sweepset.X_data-this_sweepset.settings.baseline_info.start));
+                    [~, end_point]=min(abs(this_sweepset.X_data-this_sweepset.settings.baseline_info.end));
                     baseline=mean(this_sweepset.original_data(start_point:end_point,1,:),1);            
                     baseline=repmat(baseline,length(this_sweepset.data(:,1,1)),1);
                     baseline=reshape(baseline,size(this_sweepset.data));
@@ -418,6 +474,12 @@ classdef sweepset < handle
                 case false
                     base_data=this_sweepset.original_data;
             end
+            
+            % Check if any noise should be removed
+            if this_sweepset.settings.noise_removal.spikes
+                % remove spikes   
+            end
+                
             
             % now checking if the traces are suposed to be smooth
             input=this_sweepset.settings.smooth_factor;
@@ -606,10 +668,12 @@ classdef sweepset < handle
                 case 'moving average 1s'
                     this_sweepset.settings.baseline_info.method='moving_average_1s';
                 case 'refocus'
-                    floor=min(min(this_sweepset.data))-10;
-                    roof=max(max(this_sweepset.data))+10;
-                    disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
-                    axis([0 disp_right floor roof])
+                    floor=min(min(this_sweepset.data))-0.1*max(max(this_sweepset.data));
+                    roof=max(max(this_sweepset.data))+0.1*max(max(this_sweepset.data));
+                    difference=0.1*(roof-floor);
+                    disp_right=this_sweepset.X_data(end);
+                    disp_left=this_sweepset.X_data(1);
+                    axis([disp_left disp_right floor-difference roof+difference])
                 case 'combine sweepsets'
                     combiner_1=trace_combiner;
                     assignin('base','combiner_1',combiner_1);
@@ -665,6 +729,8 @@ classdef sweepset < handle
                     disp('Data stored in workspace')
                 case 'display baseline'
                     this_sweepset.show_baseline;
+                case 'heatmap'
+                    this_sweepset.heat_plot;
             end  
         end 
         
@@ -673,16 +739,10 @@ classdef sweepset < handle
             % start and stop of the baseline.
             this_sweepset.settings.mouse_release=false;
             
-            
             set(this_sweepset.handles.figure,'WindowButtonMotionFcN',@this_sweepset.mouse_motion)
             
-            punter=get(gca,'CurrentPoint');
-            
-            if abs(punter(1,1)-this_sweepset.settings.baseline_info.end)<=abs(punter(1,1)-this_sweepset.settings.baseline_info.start)
-                this_sweepset.settings.dragdrop='baseline_end';
-            else
-                this_sweepset.settings.dragdrop='baseline_start';
-            end          
+            this_sweepset.settings.dragdrop=scr.Tag;
+                  
         end
         
         function mouse_release(this_sweepset, scr, ev)

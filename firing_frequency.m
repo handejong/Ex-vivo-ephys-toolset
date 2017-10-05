@@ -84,6 +84,17 @@ set(hObject,'CloseRequestFcn',{@close_req, handles})
 % Populating some parts of the GUI
 set(handles.filename,'String',handles.paired_sweepset.filename)
 
+% Putting the firing_frequency GUI at a location next to the active sweepset on the
+% screen.
+% Location of the sweepset figure:
+hObject.Units='pixels';
+Current_position=hObject.Position;
+Sweepset_position=handles.paired_sweepset.handles.figure.Position;
+hObject.Position=[Sweepset_position(1)+Sweepset_position(3),Sweepset_position(2)+Sweepset_position(4)-Current_position(4),Current_position(3), Current_position(4)];
+
+% Force update
+notify(handles.paired_sweepset,'selection_change');
+
 
 % --- Outputs from this function are returned to the command line.
 function varargout = firing_frequency_OutputFcn(hObject, eventdata, handles) 
@@ -256,7 +267,7 @@ threshold=str2num(threshold);
 direction=get(handles.event_direction,'Value');
 
 % figure our if the direction of the events is up or down
-if direction==0;
+if direction==0
     direction='down';
 else
     direction='up';
@@ -463,7 +474,7 @@ event_plot=plot(event_list',fliplr(Y_values'),...
     'Marker','x',...
     'MarkerFaceColor',[0 0 1],...
     'MarkerEdgeCOlor',[0 0 1]);
-xlim([0 5000])
+%xlim([0 5000])
 xlabel('time (ms)')
 ylabel('sweep #')  
 
