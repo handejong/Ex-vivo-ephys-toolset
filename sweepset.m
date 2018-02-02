@@ -29,7 +29,7 @@ classdef sweepset < handle
     
     
     properties (SetObservable)
-        filename            % .abf file
+        filename            % Usually a .abf file, but can be manually set.
         filepath            % path to file (including filename)
         file_header         % provided by abfload
         data                % sweepset as it is currently used
@@ -150,6 +150,7 @@ classdef sweepset < handle
                     this_sweepset.data(:,1,:)=data;
                     this_sweepset.sampling_frequency=(length(this_sweepset.X_data)-1)/(this_sweepset.X_data(1,end)-this_sweepset.X_data(1,1)); %in KHz
                     this_sweepset.file_header.recChUnits={'other'};
+                    this_sweepset.filename='Unnamed';
                 end
                 
                 if Unable_to_read_input
@@ -160,8 +161,10 @@ classdef sweepset < handle
             % Current or voltage clamp
             if strcmp(this_sweepset.file_header.recChUnits{1},'pA')
                 this_sweepset.clamp_type='Current (pA)';
-            else
+            elseif strcmp(this_sweepset.file_header.recChUnits{1},'mV')
                 this_sweepset.clamp_type='Voltage (mV)';
+            else
+                this_sweepset.clamp_type='Other';
             end
             
             % Setting other variables
@@ -178,12 +181,14 @@ classdef sweepset < handle
             this_sweepset.settings.average_smooth=0;
             this_sweepset.settings.smoothed=false;
             this_sweepset.settings.smooth_factor=0;
+            this_sweepset.settings.Z_scores=false;
+            this_sweepset.settings.Z_scores_over_selection=true; % Default
             this_sweepset.settings.noise_removal.spikes=false;
             this_sweepset.settings.mouse_release=false;
             this_sweepset.settings.dragdrop=''; % What is currently being draged
             
             % Make a figure
-            this_sweepset.handles.figure=figure('position',[-1840,-137,700,500]);
+            this_sweepset.handles.figure=figure('position',[0,0,700,500]);
             set(this_sweepset.handles.figure,'name',char(this_sweepset.filename),'numbertitle','off');
             hold on
             
@@ -199,13 +204,15 @@ classdef sweepset < handle
             difference=0.1*(roof-floor);
             %disp_right=round(length(this_sweepset.data(:,1,1))/this_sweepset.sampling_frequency);
             axis([this_sweepset.X_data(1) this_sweepset.X_data(end) floor-difference roof+difference])
-            haxes=findobj(this_sweepset.handles.figure,'type','axes'); %axes handle
+            haxes=findobj(this_sweepset.handles.figure,'type','axes'); %axes handle (used to put context menu)
+            this_sweepset.handles.axes=haxes;
             
             % This is the context menu (drop down) for the sweeps
             this_sweepset.handles.drop_down.sweep_menu=uicontextmenu;
             this_sweepset.handles.drop_down.m1=uimenu(this_sweepset.handles.drop_down.sweep_menu,'Label','include sweep','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.drop_down.m2=uimenu(this_sweepset.handles.drop_down.sweep_menu,'Label','reject sweep','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.drop_down.m3=uimenu(this_sweepset.handles.drop_down.sweep_menu,'Label','smooth 1ms','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.drop_down.m4=uimenu(this_sweepset.handles.drop_down.sweep_menu,'Label','Z-scores','Callback',@this_sweepset.sweep_context);
             
             % This is the context menu (drop down) for the average trace
             this_sweepset.handles.average_drop_down.menu=uicontextmenu;
@@ -232,10 +239,11 @@ classdef sweepset < handle
             this_sweepset.handles.background_drop_down.m2=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display average','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.background_drop_down.m3=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display all sweeps','Callback',@this_sweepset.sweep_context);
             this_sweepset.handles.background_drop_down.m4=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display baseline','Callback',@this_sweepset.sweep_context);
-            this_sweepset.handles.background_drop_down.m5=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','refocus','Callback',@this_sweepset.sweep_context);
-            this_sweepset.handles.background_drop_down.m6=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','combine sweepsets','Callback',@this_sweepset.sweep_context);
-            this_sweepset.handles.backgorund_drop_down.m7=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','export data','Callback',@this_sweepset.sweep_context);
-            this_sweepset.handles.backgorund_drop_down.m8=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','heatmap','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m5=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','display SEM','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m6=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','refocus','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.background_drop_down.m7=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','combine sweepsets','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.backgorund_drop_down.m8=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','export data','Callback',@this_sweepset.sweep_context);
+            this_sweepset.handles.backgorund_drop_down.m9=uimenu(this_sweepset.handles.background_drop_down.menu,'Label','heatmap','Callback',@this_sweepset.sweep_context);
             
             % Plot all the sweeps
             this_sweepset.handles.all_sweeps=plot(this_sweepset.X_data,squeeze(this_sweepset.data(:,1,:)),'b','visible','on');
@@ -259,6 +267,18 @@ classdef sweepset < handle
             set(this_sweepset.handles.average_trace,'UserData','average_trace','DisplayName','average');
             set(this_sweepset.handles.average_trace,'ButtonDownFcN',@this_sweepset.click_on_sweep)
             this_sweepset.handles.average_trace.UIContextMenu = this_sweepset.handles.average_drop_down.menu;
+            
+            % Plot the standard error of the mean (light blue shading)
+            if this_sweepset.number_of_sweeps>1 % Can only plot SEM if more than one sweep available
+                temp_data=squeeze(this_sweepset.data(:,:,this_sweepset.sweep_selection))';
+                XData=this_sweepset.X_data;
+                SEM=std(temp_data)./sqrt(this_sweepset.number_of_sweeps);
+                this_sweepset.handles.SEM=...
+                    fill([XData';flipud(XData')],[mean(temp_data)'-SEM';flipud(mean(temp_data)'+SEM')],[0 0 1],...
+                    'linestyle','none',...
+                    'FaceAlpha',0.3,...
+                    'Visible','off');
+            end
             
             % Plot vertical lines that indicate baseline start and stop
             this_sweepset.handles.baseline.start=line([this_sweepset.settings.baseline_info.start, this_sweepset.settings.baseline_info.start],[-20000 20000],'Visible','off',...
@@ -313,6 +333,8 @@ classdef sweepset < handle
         end        
               
         function average_trace=get.average_trace(this_sweepset)
+            % Getter function for the average trace
+            
             average_trace=mean(squeeze(this_sweepset.data(:,1,this_sweepset.sweep_selection)),2);
             
             if this_sweepset.settings.average_smooth>0
@@ -322,7 +344,14 @@ classdef sweepset < handle
         end      
         
         function smooth_average(this_sweepset, smooth_factor)
-             this_sweepset.settings.average_smooth=round(smooth_factor); %will be automatically updated because of the listener to settings
+            %will be automatically updated because of the listener to settings
+            if smooth_factor<1/this_sweepset.sampling_frequency
+                minimum_smooth=3/this_sweepset.sampling_frequency;
+                warning(['The mininum smooth span at this sampling rate (' num2str(this_sweepset.sampling_frequency) 'Khz) is ' num2str(minimum_smooth) 'ms.']);
+                disp('Aplying minimum smooth span');
+                smooth_factor=minimum_smooth;
+            end
+            this_sweepset.settings.average_smooth=round(smooth_factor); 
         end
         
         function smooth_trace(this_sweepset, input)
@@ -336,6 +365,12 @@ classdef sweepset < handle
                     error(['unrecognized input: ' input]);
                 end
             else
+                if input<1/this_sweepset.sampling_frequency
+                    minimum_smooth=3/this_sweepset.sampling_frequency;
+                    warning(['The mininum smooth span at this sampling rate (' num2str(this_sweepset.sampling_frequency) 'Khz) is ' num2str(minimum_smooth) 'ms.']);
+                    disp('Aplying minimum smooth span');
+                    input=minimum_smooth;
+                end
                 this_sweepset.settings.smooth_factor=input;
                 this_sweepset.settings.smoothed=true;
                 disp(['Data smoothed by ' num2str(input) 'ms']);
@@ -367,7 +402,7 @@ classdef sweepset < handle
             % the perfusion pump (in my case), but it can later be adapted
             % to remove artifacts in general.
             
-            % This function if not currently working.
+            % This function is not currently working.
             
             for i=1:this_sweepset.number_of_sweeps
                 active_trace=this_sweepset.data(:,1,i);
@@ -419,20 +454,42 @@ classdef sweepset < handle
             % Will present a nice plot (al sweeps as well as average
             % and SEM)
             
-            presentation=figure();
+            presentation=figure('name',this_sweepset.filename);
             % Presentation:
             subplot(2,1,1)
             results=squeeze(this_sweepset.data(:,:,this_sweepset.sweep_selection))';
             imagesc(results(:,:));
+            title(['Response to: ' this_sweepset.filename])
+            axis off
             subplot(2,1,2)
             XData=this_sweepset.X_data;
-            sem_results=std(results)./sqrt(this_sweepset.number_of_sweeps);
+            sem_results=std(results)./sqrt(sum(this_sweepset.sweep_selection));
             fill([XData';flipud(XData')],[mean(results)'-sem_results';flipud(mean(results)'+sem_results')],[0 0 1],'linestyle','none','FaceAlpha',0.3);
             hold on
             plot(XData,mean(results));
             xlabel('Time (ms)')
-            ylabel('Y_values')
+            
+            % Y Label
+            if this_sweepset.settings.Z_scores
+                ylabel('Z-score')
+            else
+                ylabel(this_sweepset.clamp_type)
+            end
+            
+            
   
+        end
+        
+        function refocus(this_sweepset)
+            % Just to bring all data back into visible window
+            floor=min(min(this_sweepset.data))-0.1*max(max(this_sweepset.data));
+            roof=max(max(this_sweepset.data))+0.1*max(max(this_sweepset.data));
+            difference=0.1*(roof-floor);
+            disp_right=this_sweepset.X_data(end);
+            disp_left=this_sweepset.X_data(1);
+            
+            this_sweepset.handles.axes.XLim=[disp_left disp_right];
+            this_sweepset.handles.axes.YLim=[floor-difference roof+difference];
         end
         
         function baseline=get.baseline(this_sweepset)
@@ -479,15 +536,32 @@ classdef sweepset < handle
             if this_sweepset.settings.noise_removal.spikes
                 % remove spikes   
             end
-                
-            
+                 
             % now checking if the traces are suposed to be smooth
             input=this_sweepset.settings.smooth_factor;
             if this_sweepset.settings.smoothed==true
                     for i=1:length(this_sweepset.data(1,1,:))
-                    base_data(:,1,i)=smooth(base_data(:,1,i),this_sweepset.sampling_frequency*input);
+                        base_data(:,1,i)=smooth(base_data(:,1,i),this_sweepset.sampling_frequency*input);
                     end
             end
+            
+            % Are we doing Z-scores?
+            if this_sweepset.settings.Z_scores
+                % Note that only including selected sweeps for Z-score
+                if this_sweepset.settings.Z_scores_over_selection
+                    % Use only selected sweeps to calculate Z-scores
+                    selection=this_sweepset.sweep_selection;
+                else
+                    % Use all sweeps (including non-selected ones) to
+                    % calculate Z-scores.
+                    selection=true(1,this_sweepset.number_of_sweeps);
+                end
+                m_mean=mean2(base_data(:,1,selection));
+                m_std=std2(base_data(:,1,selection));
+                base_data=base_data-m_mean;
+                base_data=base_data./m_std;   
+            end
+                
             
             % here we should add any other manipulations that can be
             % performed on the base data
@@ -549,15 +623,18 @@ classdef sweepset < handle
         end
         
         function plot_update(this_sweepset, ev, ~)
-            % Will listen to changed variabled and update other accordingly
+            % Will listen to changed variable and update others accordingly
             
             switch ev.Name
                 case 'sweep_selection'
+                    this_sweepset.data=this_sweepset.base_data;
                     notify(this_sweepset,'selection_change')
                     notify(this_sweepset,'state_change')
                     % update all plots that are dependend on this variable
                     set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
+                    set(this_sweepset.handles.current_sweep,'YData',this_sweepset.data(:,1,this_sweepset.current_sweep));
                     for i=1:length(this_sweepset.sweep_selection)
+                        set(this_sweepset.handles.all_sweeps(i),'YData',squeeze(this_sweepset.data(:,1,i)));
                         if this_sweepset.sweep_selection(i)
                             this_sweepset.handles.all_sweeps(i).Color=[0 0 1];
                         else
@@ -575,6 +652,27 @@ classdef sweepset < handle
                     set(this_sweepset.handles.average_trace,'YData',this_sweepset.average_trace);
                     
                     notify(this_sweepset,'state_change')
+            end
+            
+            % Stuff that this function should always do (should be
+            % computationally light or object will slow down).
+            if this_sweepset.settings.Z_scores
+                this_sweepset.handles.axes.YLabel.String='Z-score';
+            else
+                this_sweepset.handles.axes.YLabel.String=this_sweepset.clamp_type;
+            end
+            
+            % Update SEM shading
+            if sum(this_sweepset.sweep_selection)>1
+                temp_data=squeeze(this_sweepset.data(:,:,this_sweepset.sweep_selection))';
+                SEM=std(temp_data)./sqrt(sum(this_sweepset.sweep_selection));
+                m_average_trace=this_sweepset.average_trace';
+                m_average_trace=[m_average_trace, fliplr(m_average_trace)]';
+
+                SEM=m_average_trace+[-1.*SEM, fliplr(SEM)]';
+                this_sweepset.handles.SEM.YData=SEM;
+            else
+                this_sweepset.handles.SEM.Visible='off';
             end
         end
         
@@ -661,6 +759,12 @@ classdef sweepset < handle
                     else
                         set(this_sweepset.handles.all_sweeps,'visible','off')
                     end
+                case 'display SEM'
+                    if strcmp(this_sweepset.handles.SEM.Visible,'on')
+                        this_sweepset.handles.SEM.Visible='off';
+                    else
+                        this_sweepset.handles.SEM.Visible='on';
+                    end
                 case 'standard'
                     this_sweepset.settings.baseline_info.method='standard';
                 case 'whole trace'
@@ -668,12 +772,7 @@ classdef sweepset < handle
                 case 'moving average 1s'
                     this_sweepset.settings.baseline_info.method='moving_average_1s';
                 case 'refocus'
-                    floor=min(min(this_sweepset.data))-0.1*max(max(this_sweepset.data));
-                    roof=max(max(this_sweepset.data))+0.1*max(max(this_sweepset.data));
-                    difference=0.1*(roof-floor);
-                    disp_right=this_sweepset.X_data(end);
-                    disp_left=this_sweepset.X_data(1);
-                    axis([disp_left disp_right floor-difference roof+difference])
+                    this_sweepset.refocus();
                 case 'combine sweepsets'
                     combiner_1=trace_combiner;
                     assignin('base','combiner_1',combiner_1);
@@ -731,6 +830,10 @@ classdef sweepset < handle
                     this_sweepset.show_baseline;
                 case 'heatmap'
                     this_sweepset.heat_plot;
+                case 'Z-scores'
+                    % Toggle Z-scores or data
+                    this_sweepset.settings.Z_scores=~this_sweepset.settings.Z_scores;
+                    this_sweepset.refocus();
             end  
         end 
         
