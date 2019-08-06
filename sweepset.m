@@ -68,7 +68,7 @@ classdef sweepset < handle
         average_trace       % average trace is computed using only the selected sweeps
     end
     
-    properties (Access = private, SetObservable)
+    properties (SetObservable)
         % To save computing time, most adjustments are only performed on
         % the current channel, thus the data and base_data are not
         % neccesarily updated in all channels. They are made private to
