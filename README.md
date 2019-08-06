@@ -23,7 +23,7 @@ This should open the GUI. Note that use of the GUI should not prevent additional
 # How to get started using command-line interface:
 The basis of the toolkit is the sweepset object into which .abf recordings are loaded. A sweepset class is initiated by the command:
       
-            >> output_sweepset=sweepset('user_select','on')
+            >> output_sweepset=sweepset('user_select')
             
 To open a file browser where the user can select a .abf file. Alternatively one can specify the filename as follows:
 
